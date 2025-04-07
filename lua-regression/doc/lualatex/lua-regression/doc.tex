@@ -1,0 +1,440 @@
+%! Author = George
+%! Date = 06/04/2025
+%! Compiler = lualatex
+
+% Preamble
+\documentclass[11pt]{article}
+
+% Packages
+\usepackage{standalone}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\usepackage[margin=2.5cm]{geometry}
+
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{fillbetween}
+
+\usepackage{tabularray}
+\usepackage{multicol}
+\usepackage{minted}
+\usepackage[hidelinks]{hyperref}
+\usepackage{zref-clever}
+\usepackage{tcolorbox}
+
+\usepackage{lua-regression}
+
+% Colours
+\definecolor{p1}{HTML}{332288}
+\definecolor{p2}{HTML}{0077BB}
+\definecolor{p3}{HTML}{88CCEE}
+\definecolor{p4}{HTML}{44AA99}
+\definecolor{p5}{HTML}{117733}
+\definecolor{p6}{HTML}{999933}
+\definecolor{p7}{HTML}{DDCC77}
+\definecolor{p8}{HTML}{EE7733}
+\definecolor{p9}{HTML}{CC6677}
+\definecolor{p10}{HTML}{CC3311}
+\definecolor{p11}{HTML}{882255}
+\definecolor{p12}{HTML}{AA4499}
+\definecolor{p13}{HTML}{EE3377}
+
+\usepackage[backend=biber,style=numeric]{biblatex}
+
+% Document
+\begin{document}
+    \title{The {\ttfamily lua-regression} package}
+    \author{George Allison\thanks{\href{mailto:GHAllison1@sheffield.ac.uk}{\ttfamily mailto:GHAllison1@sheffield.ac.uk}}}
+    \date{v1.0.0\\ \today}
+
+    \maketitle
+
+    \begin{abstract}
+        The {\ttfamily lua-regression} package is a Lua\LaTeX package that provides a simple interface for performing polynomial regression on data sets.
+        It allows users to specify the order of the polynomial regression, the columns of the data set to use, and whether to plot the results.
+        The package also includes options for confidence intervals and error bands.
+
+        \vspace{1em}
+        \noindent
+        \textbf{Keywords:} LuaLaTeX, regression, plotting, data analysis
+    \end{abstract}
+
+    \tableofcontents
+
+    \pagebreak
+
+    \section{What is {\ttfamily lua-regression}?}
+
+    The {\ttfamily lua-regression} package is a Lua\LaTeX package that provides a simple interface for performing polynomial regression on data sets within \LaTeX. For example:
+
+    \begin{minted}[autogobble]{latex}
+        \luaregression[plot=true, order=2, xcol=1, ycol=2]{data.csv}
+    \end{minted}
+
+    \noindent
+    The above code will perform a polynomial regression of order 2 on the data in the file {\ttfamily data.csv}, using the first column as the x-values and the second column as the y-values.
+    The plot result will only work in a tikzpicture enviroment.
+
+
+    \subsection{About}
+
+    The main functions of the {\ttfamily lua-regression} package are written purely in Lua and integrated into \LaTeX via Lua\LaTeX.
+    This code was written to provide a \LaTeX consistent interface for performing polynomial regression on data sets, without the need for external software or libraries.
+    The package uses the Lua programming language to perform the regression calculations, and it can be easily integrated into existing \LaTeX documents using the Lua\LaTeX engine.
+    Currently, if you wish to perform a regression on a data set, you must use an external program to preform the regression and then import the results or pgf file into \LaTeX.
+    This requires extra steps and can be unnecessarily complicated to maintain styling.
+
+    The {\ttfamily lua-regression} package aims to simplify this process by providing a simple interface for performing polynomial regression directly within \LaTeX.
+    The target audience for this package is primarily, students, researchers, and academics who are already working in \LaTeX and need to perform polynomial regression on data sets as part of their work.
+    The package is designed to be easy to use and flexible, allowing users to specify the order of the polynomial regression, the columns of the data set to use, and whether to plot the results.
+    The package also includes options for confidence intervals and error bands, making it a powerful tool for data analysis and visualization that creates plots similar to those produced by the Python library {\ttfamily Seaborn}.
+
+    Using Lua allows for a clearer and more efficient implementation of the regression calculations, as well as better integration with \LaTeX thanks to Lua\LaTeX.
+    It further benefits from not requiring any external dependencies, or the need to use {\ttfamily --shell-escape} to run.
+
+    \subsection{Features}
+
+    Currently, the {\ttfamily lua-regression} package supports the following features:
+    \begin{itemize}
+        \item Polynomial regression of any order.
+        \item Plotting of the regression results using PGFPlots.
+        \item Confidence intervals and error bands using the bootstrap method.
+        \item Simple interface for specifying data sets and options.
+        \item No external dependencies or {\ttfamily shell-escape} required.
+        \item Support for CSV format data files.
+        \item Perform $R^2$ tests on the data.
+        \item Support for significant figures.
+        \item Add and remove equation and $R^2$ from the legend.
+        \item Outputs equations and $R^2$ values to LaTeX commands so they can be called in the document.
+    \end{itemize}
+
+    \subsection{Acknowledgements}
+
+    Rob S., for constant encouragement and moral support.
+
+    Max K., for providing feedback on the package and its features.
+
+    \section{Installation}
+
+    \subsection{Requirements}
+    
+    The {\ttfamily lua-regression} package requires compilation with Lua\LaTeX. It has been tested on Lua 5.2 and higher.
+    Further some additional packages are required:
+
+    \begin{multicols}{4}
+        {\ttfamily
+            \begin{itemize}
+                \item pfgkeys
+                \item luacode
+                \item pgfplots
+                \item tikz
+            \end{itemize}
+        }
+    \end{multicols}
+
+    The packages {\ttfamily pgfplots} and {\ttfamily tikz} are not strictly required for running the package.
+    However, they are needed for drawing the generated equations or confidence intervals on the plot.
+
+    \subsection{Install {\ttfamily lua-regression}}
+
+    The package manager for your local TeX distribution should install the package fine.
+    However, the package can also be downloaded independently and placed in your local texmf directory.
+    Once you have a copy of {\ttfamily lua-regression} installed, include the following in your preamble:
+
+    \begin{minted}[autogobble]{latex}
+        \usepackage{lua-regression}
+    \end{minted}
+
+    \subsection{Todo}
+
+    There are probably bugs and use cases that I have not thought of.
+    This code was originally written for my own use, and I have not tested it on all possible data sets.
+    Thus, it only includes the features I needed at the time of writing.
+    Future enhancements to {\ttfamily lua-regression} may include:
+
+    \begin{itemize}
+        \item Support for other regression types (e.g., exponential, etc.).
+        \item Improved error handling and debugging options.
+        \item More advanced plotting options and customization.
+        \item Support for other data formats (e.g., JSON, XML, etc.).
+        \item Robust regression methods.
+        \item Support for plotting multiple regression lines with one command.
+        \item Restructuring the code to be more modular and easier to maintain.
+    \end{itemize}
+
+    \section{Usage}
+
+    \subsection{Calling the Package}
+
+    The {\ttfamily lua-regression} package is called using the following command:
+
+    \begin{minted}[autogobble]{latex}
+        \luaregression[options]{data.csv}
+    \end{minted}
+
+    \noindent
+    The options for {\ttfamily lua-regression} are seen in \zcref{tab:options}.
+
+    \noindetnt
+    \begin{table}
+
+        \centering
+        \begin{tblr}{
+            width=\textwidth,
+            hline{1,2,Z}={1pt, solid},
+            colspec = {Q[l,m] X[l,m] X[l,m]},
+            row{1} = {font=\bfseries}
+        }
+        Option & Description & Type \\
+        xcol & The column index for the x-values & integer (default: 1) \\
+        ycol & The column index for the y-values & integer (default: 2) \\
+        ci & Whether to include confidence intervals & boolean (default: false) \\
+        z-threshold & The Z-score threshold for confidence intervals & number (default: null) \\
+        sig-figures & The number of significant figures to display & integer (default: 4) \\
+        order & The order of the polynomial regression & integer (default: 1) \\
+        plot & Whether to plot the results & boolean (default: false) \\
+        pgf-options & Additional PGF options for plotting & string (default: mark=none,smooth) \\
+        eq & Whether to show the equation in the plot legend & boolean (default: false) \\
+        r2 & Whether to show the R² value in the plot legend & boolean (default: false) \\
+        debug & Whether to enable debug mode & boolean (default: false) \\
+        bootstrap & The number of bootstrap samples for confidence intervals & integer (default: 1000) \\
+        cicolor & The color for the confidence interval fill & string (default: blue) \\
+        cifillopacity & The opacity for the confidence interval fill & number (default: 0.2) \\
+        \end{tblr}
+
+        \caption{Options for the {\ttfamily lua-regression} package.}
+        \zlabel{tab:options}
+
+    \end{table}
+
+    \noindent
+    Additionally, specific values from the package can be called in the document using the following commands:
+
+    \begin{minted}[autogobble, breaklines, breakanywhere]{latex}
+        \polyR - The R squared value of the regression.
+        \polyeq - The polynomial equation of the regression in a format pgfplots can interpret.
+        \printeq - The polynomial equation of the regression in a visually nice format.
+        \qlwr - The points for the lower confidence interval.
+        \qupr - The points for the upper confidence interval.
+    \end{minted}
+
+    \noindent
+    These can be called in the document at any point after the {\ttfamily lua-regression} command.
+
+    \section{Example}
+
+    The following example demonstrates how to use the {\ttfamily lua-regression} package to perform polynomial regressions on a data set and plot the results.
+    The data set used in this example is a CSV file for the seaborn-data GitHub repository, which contains information about the miles per gallon (MPG) of various cars.
+
+    \noindent
+    \href{https://github.com/mwaskom/seaborn-data}{Seaborn-data Github repository}
+
+    \begin{minted}[autogobble, breaklines, breakanywhere]{latex}
+        \luaregression[xcol = 4, ycol = 5, order = 1]{example/mpg.csv}
+
+        The equation for the linear regression for the MPG data set is $\printeq$ and the $R^2$ value is $\polyR$.
+    \end{minted}
+
+    \luaregression[xcol = 4, ycol = 5, order = 1]{example/mpg.csv}
+
+    \noindent
+    The equation for the linear regression for the MPG data set is $\printeq$ and the $R^2$ value is $\polyR$.
+
+    \pagebreak
+
+    \subsection{A linear regression of order 1}
+
+    The following code performs a polynomial regression of order 1 on the MPG data set, using the first column as the x-values and the second column as the y-values.
+    Seen in \zcref{fig:example-1}.
+
+    \begin{minted}[autogobble, breaklines, breakanywhere]{latex}
+        \begin{tikzpicture}
+            \begin{axis}[
+                height=6.45cm,
+                width=\textwidth,
+                domain=0:300,
+                samples=1000,
+                xmin=25,
+                xmax=240,
+                xlabel=horsepower,
+                ytick={},
+                xtick={},
+                ymax=6000,
+                ymin=1250,
+                ylabel=weight,
+                grid=both,
+                legend columns = 2,
+                legend style={cells={align=left},at={(0.45,-0.22)},anchor=north},
+                legend cell align=left,
+                major grid style={line width=.2pt,draw=gray!20},
+                every axis/.append style={axis line style={gray!80, line width=0.75pt}, tick style={gray!95}}
+            ]
+
+            \addlegendimage{p4, mark=*, thick}
+            \addlegendimage{p8, thick}
+
+            \pgfplotstableread[col sep=comma]{example/mpg.csv}\datatable
+
+            \addplot [p4,mark=*,fill opacity=0.75, draw opacity=0] table [only marks,col sep=comma,x=horsepower,y=weight]{\datatable};
+
+            \luaregression[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 1, ci = true]{example/mpg.csv}
+
+            \end{axis}
+        \end{tikzpicture}
+    \end{minted}
+
+    \pagebreak
+
+    \begin{figure}[h]
+        \begin{tikzpicture}
+            \begin{axis}[
+                height=.5\textheight,
+                width=\textwidth,
+                domain=0:300,
+                samples=1000,
+                xmin=25,
+                xmax=240,
+                xlabel=horsepower,
+                ytick={},
+                xtick={},
+                ymax=6000,
+                ymin=1250,
+                ylabel=weight,
+                grid=both,
+                legend columns = 2,
+                legend style={cells={align=left},at={(0.45,-0.22)},anchor=north},
+                legend cell align=left,
+                major grid style={line width=.2pt,draw=gray!20},
+                every axis/.append style={axis line style={gray!80, line width=0.75pt}, tick style={gray!95}}
+            ]
+
+            \addlegendimage{p4, mark=*, thick}
+            \addlegendimage{p8, thick}
+
+            \pgfplotstableread[col sep=comma]{example/mpg.csv}\datatable
+
+            \addplot [p4,mark=*,fill opacity=0.75, draw opacity=0] table [only marks,col sep=comma,x=horsepower,y=weight]{\datatable};
+
+            \luaregression[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 1, ci = true]{example/mpg.csv}
+
+            \end{axis}
+        \end{tikzpicture}
+
+        \caption{Polynomial regression of order 1 on the MPG data set. The plot shows the data points, the fitted polynomial regression line, and the confidence intervals.}
+        \zlabel{fig:example-1}
+    \end{figure}
+
+    \pagebreak
+
+    \subsection{A polynomial regression of order 2}
+
+    The following example demonstrates how to use the {\ttfamily lua-regression} package to perform polynomial regression of order 2 on the same data set.
+    Seen in \zcref{fig:example-2}.
+
+    \begin{minted}[autogobble, breaklines, breakanywhere]{latex}
+        \begin{tikzpicture}
+            \begin{axis}[
+                height=6.45cm,
+                width=\textwidth,
+                domain=0:300,
+                samples=1000,
+                xmin=25,
+                xmax=240,
+                xlabel=horsepower,
+                ytick={},
+                xtick={},
+                ymax=6000,
+                ymin=1250,
+                ylabel=weight,
+                grid=both,
+                legend columns = 2,
+                legend style={cells={align=left},at={(0.45,-0.22)},anchor=north},
+                legend cell align=left,
+                major grid style={line width=.2pt,draw=gray!20},
+                every axis/.append style={axis line style={gray!80, line width=0.75pt}, tick style={gray!95}}
+            ]
+
+            \addlegendimage{p4, mark=*, thick}
+            \addlegendimage{p8, thick}
+
+            \pgfplotstableread[col sep=comma]{example/mpg.csv}\datatable
+
+            \addplot [p4,mark=*,fill opacity=0.75, draw opacity=0] table [only marks,col sep=comma,x=horsepower,y=weight]{\datatable};
+
+            \luaregression[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 2, ci = true]{example/mpg.csv}
+
+            \end{axis}
+        \end{tikzpicture}
+    \end{minted}
+
+    \pagebreak
+
+    \begin{figure}[h]
+        \begin{tikzpicture}
+            \begin{axis}[
+                height=.5\textheight,
+                width=\textwidth,
+                domain=0:300,
+                samples=1000,
+                xmin=25,
+                xmax=240,
+                xlabel=horsepower,
+                ytick={},
+                xtick={},
+                ymax=6000,
+                ymin=1250,
+                ylabel=weight,
+                grid=both,
+                legend columns = 2,
+                legend style={cells={align=left},at={(0.45,-0.22)},anchor=north},
+                legend cell align=left,
+                major grid style={line width=.2pt,draw=gray!20},
+                every axis/.append style={axis line style={gray!80, line width=0.75pt}, tick style={gray!95}}
+            ]
+
+            \addlegendimage{p4, mark=*, thick}
+            \addlegendimage{p8, thick}
+
+            \pgfplotstableread[col sep=comma]{example/mpg.csv}\datatable
+
+            \addplot [p4,mark=*,fill opacity=0.75, draw opacity=0] table [only marks,col sep=comma,x=horsepower,y=weight]{\datatable};
+
+            \luaregression[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 2, ci = true]{example/mpg.csv}
+
+            \end{axis}
+        \end{tikzpicture}
+
+        \caption{Polynomial regression of order 2 on the MPG data set. The plot shows the data points, the fitted polynomial regression line, and the confidence intervals.}
+        \zlabel{fig:example-2}
+    \end{figure}
+
+    \pagebreak
+
+    \section{Changelog}
+
+    \subsection*{v1.0.0}
+
+    \begin{itemize}
+        \item Initial release of the {\ttfamily lua-regression} package.
+        \item Basic polynomial regression functionality.
+        \item Plotting support using PGFPlots.
+        \item Confidence intervals and error bands using the bootstrap method.
+        \item Simple interface for specifying data sets and options.
+        \item No external dependencies or {\ttfamily shell-escape} required.
+        \item Support for CSV format data files.
+        \item Perform $R^2$ tests on the data.
+        \item Support for significant figures.
+        \item Add and remove equation and $R^2$ from the legend.
+        \item Outputs equations and $R^2$ values to LaTeX commands so they can be called in the document.
+    \end{itemize}
+
+    \pagebreak
+
+    \section{Code}
+
+    \inputminted[autogobble, breaklines, breakanywhere, firstline=22, linenos]{latex}{lua-regression.dat}
+
+
+\end{document}

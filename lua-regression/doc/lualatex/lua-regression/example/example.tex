@@ -1,0 +1,103 @@
+%! Author = George
+%! Date = 07/04/2025
+%! Compiler = lualatex
+
+\documentclass[tikz,crop=true]{standalone}
+
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usepackage{luacode}
+\definecolor{p1}{HTML}{332288}
+\definecolor{p2}{HTML}{0077BB} %*
+\definecolor{p3}{HTML}{88CCEE}
+\definecolor{p4}{HTML}{44AA99}
+\definecolor{p5}{HTML}{117733}
+\definecolor{p6}{HTML}{999933}
+\definecolor{p7}{HTML}{DDCC77}
+\definecolor{p8}{HTML}{EE7733} %*
+\definecolor{p9}{HTML}{CC6677}
+\definecolor{p10}{HTML}{CC3311} %*
+\definecolor{p11}{HTML}{882255}
+\definecolor{p12}{HTML}{AA4499}
+\definecolor{p13}{HTML}{EE3377} %*
+\pgfplotsset{compat=1.18}
+\usepackage[T1]{fontenc}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{arevmath}
+\DeclareMathSizes{10}{9}{7}{5}
+\DeclareMathSizes{12}{10}{7}{5}
+\usepgfplotslibrary{fillbetween}
+
+\usepackage{lua-regression}
+
+\begin{document}
+
+	\begin{tikzpicture}
+		\begin{axis}[
+			height=6.45cm,
+			width=\textwidth,
+			domain=0:300,
+			samples=1000,
+			xmin=25,
+			xmax=240,
+			xlabel=horsepower,
+			ytick={},
+			xtick={},
+			ymax=6000,
+			ymin=1250,
+			ylabel=weight,
+			grid=both,
+			legend columns = 2,
+			legend style={cells={align=left},at={(0.45,-0.22)},anchor=north},
+			legend cell align=left,
+			major grid style={line width=.2pt,draw=gray!20},
+			every axis/.append style={axis line style={gray!80, line width=0.75pt}, tick style={gray!95}}
+			]
+
+			\addlegendimage{p4, mark=*, thick}
+			\addlegendimage{p8, thick}
+
+			\pgfplotstableread[col sep=comma]{mpg.csv}\datatable
+
+			\addplot [p4,mark=*,fill opacity=0.5] table [only marks,col sep=comma,x=horsepower,y=weight] {\datatable};
+
+			\luaregression[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 1, ci = true]{mpg.csv}
+
+		\end{axis}
+	\end{tikzpicture}
+
+	\begin{tikzpicture}
+		\begin{axis}[
+			height=6.45cm,
+			width=\textwidth,
+			domain=0:300,
+			samples=1000,
+			xmin=25,
+			xmax=240,
+			xlabel=horsepower,
+			ytick={},
+			xtick={},
+			ymax=6000,
+			ymin=1250,
+			ylabel=weight,
+			grid=both,
+			legend columns = 2,
+			legend style={cells={align=left},at={(0.45,-0.22)},anchor=north},
+			legend cell align=left,
+			major grid style={line width=.2pt,draw=gray!20},
+			every axis/.append style={axis line style={gray!80, line width=0.75pt}, tick style={gray!95}}
+			]
+
+			\addlegendimage{p4, mark=*, thick}
+			\addlegendimage{p8, thick}
+
+			\pgfplotstableread[col sep=comma]{mpg.csv}\datatable
+
+			\addplot [p4,mark=*,fill opacity=0.5] table [only marks,col sep=comma,x=horsepower,y=weight] {\datatable};
+
+			\luaregression[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 2, ci = true]{mpg.csv}
+
+		\end{axis}
+	\end{tikzpicture}
+
+\end{document}
