@@ -17,7 +17,7 @@ Offers some additional features such as the ability to generate confidence inter
 
 ## Installation
 
-This package can be installed with a local LaTeX distribution (e.g. TeX Live, MikTeX). (Once approved, it will be available on CTAN.)
+This package can be installed with a local LaTeX distribution (e.g. TeX Live, MikTeX), from [CTAN](https://ctan.org/pkg/lua-regression).
 
 Otherwise, you can clone the repository or download from 
 [releases](https://github.com/HaivuUK/lua-regression/releases/latest)

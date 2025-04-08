@@ -18,14 +18,15 @@
 \pgfplotsset{compat=1.18}
 \usepgfplotslibrary{fillbetween}
 
+\usepackage{lua-regression-dev}
+
 \usepackage{tabularray}
 \usepackage{multicol}
 \usepackage{minted}
 \usepackage[hidelinks]{hyperref}
 \usepackage{zref-clever}
-\usepackage{tcolorbox}
-
-\usepackage{lua-regression}
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{xparse}
 
 % Colours
 \definecolor{p1}{HTML}{332288}
@@ -42,7 +43,15 @@
 \definecolor{p12}{HTML}{AA4499}
 \definecolor{p13}{HTML}{EE3377}
 
-\usepackage[backend=biber,style=numeric]{biblatex}
+\newtcolorbox{warningbox}[1][]{
+    enhanced,skin=bicolor,
+    #1,
+    arc=1pt,
+    colframe=red,
+    colback=red!10,
+    boxrule=1pt,
+    notitle
+}
 
 % Document
 \begin{document}
@@ -76,7 +85,7 @@
 
     \noindent
     The above code will perform a polynomial regression of order 2 on the data in the file {\ttfamily data.csv}, using the first column as the x-values and the second column as the y-values.
-    The plot result will only work in a tikzpicture enviroment.
+    The plot result will only work in a tikzpicture environment.
 
 
     \subsection{About}
@@ -108,13 +117,14 @@
         \item Perform $R^2$ tests on the data.
         \item Support for significant figures.
         \item Add and remove equation and $R^2$ from the legend.
-        \item Outputs equations and $R^2$ values to LaTeX commands so they can be called in the document.
+        \item Outputs equations and $R^2$ values to LaTeX commands, so they can be called in the document.
     \end{itemize}
 
     \subsection{Acknowledgements}
 
     Rob S., for constant encouragement and moral support.
 
+    \noindent
     Max K., for providing feedback on the package and its features.
 
     \section{Installation}
@@ -124,9 +134,10 @@
     The {\ttfamily lua-regression} package requires compilation with Lua\LaTeX. It has been tested on Lua 5.2 and higher.
     Further some additional packages are required:
 
-    \begin{multicols}{4}
+    \begin{multicols}{3}
         {\ttfamily
             \begin{itemize}
+            	\item ifthen
                 \item pfgkeys
                 \item luacode
                 \item pgfplots
@@ -163,6 +174,7 @@
         \item Robust regression methods.
         \item Support for plotting multiple regression lines with one command.
         \item Restructuring the code to be more modular and easier to maintain.
+        \item Improved performance.
     \end{itemize}
 
     \section{Usage}
@@ -185,30 +197,35 @@
         \begin{tblr}{
             width=\textwidth,
             hline{1,2,Z}={1pt, solid},
-            colspec = {Q[l,m] X[l,m] X[l,m]},
+            colspec = {Q[l,m] X[l,m] Q[l,m] Q[c,m]},
             row{1} = {font=\bfseries}
         }
-        Option & Description & Type \\
-        xcol & The column index for the x-values & integer (default: 1) \\
-        ycol & The column index for the y-values & integer (default: 2) \\
-        ci & Whether to include confidence intervals & boolean (default: false) \\
-        z-threshold & The Z-score threshold for confidence intervals & number (default: null) \\
-        sig-figures & The number of significant figures to display & integer (default: 4) \\
-        order & The order of the polynomial regression & integer (default: 1) \\
-        plot & Whether to plot the results & boolean (default: false) \\
-        pgf-options & Additional PGF options for plotting & string (default: mark=none,smooth) \\
-        eq & Whether to show the equation in the plot legend & boolean (default: false) \\
-        r2 & Whether to show the R² value in the plot legend & boolean (default: false) \\
-        debug & Whether to enable debug mode & boolean (default: false) \\
-        bootstrap & The number of bootstrap samples for confidence intervals & integer (default: 1000) \\
-        cicolor & The color for the confidence interval fill & string (default: blue) \\
-        cifillopacity & The opacity for the confidence interval fill & number (default: 0.2) \\
+        Option & Description & Type & Default \\
+        xcol & The column index for the x-values & integer & 1 \\
+        ycol & The column index for the y-values & integer & 2 \\
+        ci & Whether to include confidence intervals & boolean & false \\
+        z-threshold & The Z-score threshold for confidence intervals & number & null \\
+        sig-figures & The number of significant figures to display & integer & 4 \\
+        order & The order of the polynomial regression & integer & 1 \\
+        plot & Whether to plot the results & boolean & false \\
+        pgf-options & Additional PGF options for plotting & string & {mark=none,smooth} \\
+        eq & Whether to show the equation in the plot legend & boolean & false \\
+        r2 & Whether to show the R² value in the plot legend & boolean & false \\
+        debug & Whether to enable debug mode & boolean & false \\
+        bootstrap & The number of bootstrap samples for confidence intervals & integer & 1000 \\
+        cicolor & The color for the confidence interval fill & string & blue \\
+        cifillopacity & The opacity for the confidence interval fill & number & 0.2 \\
         \end{tblr}
 
         \caption{Options for the {\ttfamily lua-regression} package.}
         \zlabel{tab:options}
 
     \end{table}
+
+    \noindent
+    \begin{warningbox}
+    It should be noted that Lua indexes at 1 and therefore when specifying x and y columns you should treat the first column as index 1.
+    \end{warningbox}
 
     \noindent
     Additionally, specific values from the package can be called in the document using the following commands:
@@ -224,6 +241,25 @@
     \noindent
     These can be called in the document at any point after the {\ttfamily lua-regression} command.
 
+    \section{Package Performance}
+
+    The {\ttfamily lua-regression} package has not been extensively tested on large data sets and no promises of performance can be made.
+    However, Lua is a fast and generally efficient language that should perform well on most data sets.
+
+    \subsection{Performance on 80 row data set}
+
+    For example a test of the package on a data set of 80 rows and took approximately \textbf{0.786} seconds to run on a R9 5950X, using TexLive 2025.
+   
+    The comparative Python code took approximately \textbf{0.533} seconds to run on the same data set.
+
+    \subsection{Performance on 400 row data set}
+
+    A test on data of 400 rows took approximately \textbf{1.99} seconds to run on a R9 5950X, using TexLive 2025.
+    
+    The comparative Python code took approximately \textbf{0.265} seconds to run on the same data set.
+
+    \pagebreak
+
     \section{Example}
 
     The following example demonstrates how to use the {\ttfamily lua-regression} package to perform polynomial regressions on a data set and plot the results.
@@ -237,7 +273,7 @@
 
         The equation for the linear regression for the MPG data set is $\printeq$ and the $R^2$ value is $\polyR$.
     \end{minted}
-
+	
     \luaregression[xcol = 4, ycol = 5, order = 1]{example/mpg.csv}
 
     \noindent
@@ -414,6 +450,12 @@
     \pagebreak
 
     \section{Changelog}
+    
+    \subsection*{v1.0.1}
+    
+    \begin{itemize}
+    	\item Added required package {\ttfamily ifthen}.
+    \end{itemize}
 
     \subsection*{v1.0.0}
 
