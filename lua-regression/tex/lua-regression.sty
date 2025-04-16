@@ -19,7 +19,7 @@
 % implied warranties of merchantability and fitness for a
 % particular purpose.
 
-\ProvidesPackage{lua-regression}[2025/04/06 1.0.1  Lua Regression Plotting project]
+\ProvidesPackage{lua-regression}[2025/04/17 1.0.2  Lua Regression Plotting project]
 
 \RequirePackage{ifthen}
 \ifluatex
@@ -36,7 +36,6 @@
 \RequirePackage{pgfplots}
 \usepgfplotslibrary{fillbetween}
 
-% Define the key-value options
 % Define the key-value options
 \pgfkeys{
     /luaregression/.is family, /luaregression,
@@ -97,6 +96,17 @@
             {Use '\\begin{tikzpicture} ... \\end{tikzpicture}' with '\\usepackage{pgfplots}'.}%
         \fi
         \expandafter\addplot\expandafter[\luaregressionpgfoptions] {\polyeq};%
+        % Plot confidence band if ci=true
+        \ifthenelse{\equal{\luaregressionci}{true}}{%
+            \begingroup
+            \edef\luareg@ci@addplot{%
+            \noexpand\addplot[fill=\luaregressioncicolor,fill opacity=\luaregressioncifillopacity] fill between[of=quprpath and qlwrpath];%
+            }
+            \addplot[name path=qlwrpath,draw=none] coordinates {\qlwr};
+            \addplot[name path=quprpath,draw=none] coordinates {\qupr};
+            \luareg@ci@addplot
+            \endgroup
+        }{}%
         % Construct the legend entry dynamically
         \begingroup
         \def\legendentry{}%
@@ -115,14 +125,5 @@
             \expandafter\addlegendentry\expandafter{\legendentry}%
         \fi
         \endgroup
-        % Plot confidence band if ci=true
-        \ifthenelse{\equal{\luaregressionci}{true}}{%
-        \addplot[name path=qlwrpath,draw=none] coordinates {\qlwr};
-        \addplot[name path=quprpath,draw=none] coordinates {\qupr};
-        \addplot[
-            fill=\luaregressioncicolor,
-            fill opacity=\luaregressioncifillopacity
-        ] fill between[of=quprpath and qlwrpath];
-        }{}%
     }{}%
 }
