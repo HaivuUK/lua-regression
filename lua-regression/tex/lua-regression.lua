@@ -439,7 +439,7 @@ function sigFig(value, digits)
     return tonumber(string.format(fmt, value))
 end
 
--- Example outlier filter using Z-scores
+-- Outlier filter using Z-scores
 function filter_outliers(data, threshold)
     if not threshold then return data end
 
