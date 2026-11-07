@@ -1,0 +1,31 @@
+# Distribution and build output
+dist/
+build/
+
+# TeX / LaTeX auxiliary and temporary files
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.idx
+*.ilg
+*.ind
+*.lof
+*.log
+*.lot
+*.nav
+*.out
+*.run.xml
+*.snm
+*.synctex*
+*.toc
+*.vrb
+
+# Minted package temporary directories
+_minted*/
+
+# OS generated files
+.DS_Store
+Thumbs.db

@@ -19,7 +19,13 @@
 
 \usepackage[svgnames]{xcolor}
 
-\usepackage{lua-regression-dev}
+% Use repository version of lua-regression if present (development), otherwise system package
+\IfFileExists{../tex/lua-regression.sty}{%
+    \directlua{package.loaded['lua-regression'] = dofile('../tex/lua-regression.lua')}%
+    \usepackage{../tex/lua-regression}%
+}{%
+    \usepackage{lua-regression}%
+}
 
 \usepackage{tabularray}
 \usepackage{multicol}
