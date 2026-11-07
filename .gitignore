@@ -23,8 +23,9 @@ build/
 *.toc
 *.vrb
 
-# Minted package temporary directories
+# Minted package temporary directories and files
 _minted*/
+*.minted
 
 # OS generated files
 .DS_Store

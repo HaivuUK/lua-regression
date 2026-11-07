@@ -21,7 +21,6 @@
 
 % Use repository version of lua-regression if present (development), otherwise system package
 \IfFileExists{../tex/lua-regression.sty}{%
-    \directlua{package.loaded['lua-regression'] = dofile('../tex/lua-regression.lua')}%
     \usepackage{../tex/lua-regression}%
 }{%
     \usepackage{lua-regression}%
@@ -29,6 +28,13 @@
 
 \usepackage{tabularray}
 \usepackage{multicol}
+% Ensure the minted cache directory exists before latexminted runs
+\directlua{
+    local lfs = require("lfs")
+    if lfs and not lfs.isdir("_minted") then
+        lfs.mkdir("_minted")
+    end
+}
 \usepackage{minted}
 \usepackage[hidelinks]{hyperref}
 \usepackage{zref-clever}

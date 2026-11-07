@@ -24,9 +24,23 @@ echo "======================================================================"
 echo "Repository root: ${REPO_ROOT}"
 echo "Output directory: ${DIST_DIR}"
 
-# 1. Validation of required source files
+# 1. Validation and preparation of required source files
 echo ""
 echo "--> [1/5] Verifying source files exist..."
+
+# Ensure example datasets from seaborn-data submodule are present
+EXAMPLE_DIR="${REPO_ROOT}/lua-regression/doc/example"
+mkdir -p "${EXAMPLE_DIR}"
+
+if [ -f "${REPO_ROOT}/.gitmodules" ] && [ ! -f "${EXAMPLE_DIR}/seaborn-data/mpg.csv" ]; then
+    echo "  [INFO] Initializing git submodules..."
+    (cd "${REPO_ROOT}" && git submodule update --init --recursive 2>/dev/null || true)
+fi
+
+if [ -f "${EXAMPLE_DIR}/seaborn-data/mpg.csv" ] && [ ! -f "${EXAMPLE_DIR}/mpg.csv" ]; then
+    echo "  [INFO] Setting up mpg.csv from seaborn-data submodule..."
+    cp "${EXAMPLE_DIR}/seaborn-data/mpg.csv" "${EXAMPLE_DIR}/mpg.csv"
+fi
 
 REQUIRED_FILES=(
     "lua-regression/tex/lua-regression.sty"
@@ -71,12 +85,17 @@ echo "--> [2/5] Preparing CTAN archive structure (${PACKAGE_NAME}.zip)..."
 cp -r "${REPO_ROOT}/lua-regression/"* "${BUILD_DIR}/ctan/${PACKAGE_NAME}/"
 cp "${REPO_ROOT}/LICENSE.md" "${BUILD_DIR}/ctan/${PACKAGE_NAME}/"
 
-# Clean out any temporary files, TeX auxiliary files, or OS-specific files
+# Clean out any temporary files, TeX auxiliary files, OS-specific files, and git metadata
+rm -rf "${BUILD_DIR}/ctan/${PACKAGE_NAME}/doc/_minted"
+find "${BUILD_DIR}/ctan" -name ".git*" -exec rm -rf {} + 2>/dev/null || true
+rm -rf "${BUILD_DIR}/ctan/${PACKAGE_NAME}/doc/example/seaborn-data/png" \
+       "${BUILD_DIR}/ctan/${PACKAGE_NAME}/doc/example/seaborn-data/raw" \
+       "${BUILD_DIR}/ctan/${PACKAGE_NAME}/doc/example/seaborn-data/process"
 find "${BUILD_DIR}/ctan" -type f \( \
     -name "*.aux" -o -name "*.log" -o -name "*.out" -o -name "*.toc" \
     -o -name "*.bbl" -o -name "*.bcf" -o -name "*.blg" -o -name "*.run.xml" \
     -o -name "*.synctex.gz" -o -name "*.fls" -o -name "*.fdb_latexmk" \
-    -o -name ".DS_Store" -o -name "Thumbs.db" \
+    -o -name "*.minted" -o -name ".DS_Store" -o -name "Thumbs.db" \
 \) -delete
 
 (
@@ -99,11 +118,16 @@ cp "${REPO_ROOT}/LICENSE.md" "${BUILD_DIR}/tds/doc/lualatex/${PACKAGE_NAME}/"
 cp "${REPO_ROOT}/lua-regression/README.md" "${BUILD_DIR}/tds/doc/lualatex/${PACKAGE_NAME}/"
 cp -r "${REPO_ROOT}/lua-regression/doc/"* "${BUILD_DIR}/tds/doc/lualatex/${PACKAGE_NAME}/"
 
+rm -rf "${BUILD_DIR}/tds/doc/lualatex/${PACKAGE_NAME}/_minted"
+find "${BUILD_DIR}/tds" -name ".git*" -exec rm -rf {} + 2>/dev/null || true
+rm -rf "${BUILD_DIR}/tds/doc/lualatex/${PACKAGE_NAME}/example/seaborn-data/png" \
+       "${BUILD_DIR}/tds/doc/lualatex/${PACKAGE_NAME}/example/seaborn-data/raw" \
+       "${BUILD_DIR}/tds/doc/lualatex/${PACKAGE_NAME}/example/seaborn-data/process"
 find "${BUILD_DIR}/tds" -type f \( \
     -name "*.aux" -o -name "*.log" -o -name "*.out" -o -name "*.toc" \
     -o -name "*.bbl" -o -name "*.bcf" -o -name "*.blg" -o -name "*.run.xml" \
     -o -name "*.synctex.gz" -o -name "*.fls" -o -name "*.fdb_latexmk" \
-    -o -name ".DS_Store" -o -name "Thumbs.db" \
+    -o -name "*.minted" -o -name ".DS_Store" -o -name "Thumbs.db" \
 \) -delete
 
 (
@@ -154,7 +178,7 @@ do
 done
 
 # Validate no forbidden files
-FORBIDDEN=$(echo "${CTAN_ZIP_ENTRIES}" | grep -E '\.(aux|log|out|toc|bbl|bcf|blg|run\.xml|synctex\.gz|fls|fdb_latexmk)$|\.DS_Store|Thumbs\.db' || true)
+FORBIDDEN=$(echo "${CTAN_ZIP_ENTRIES}" | grep -E '\.(aux|log|out|toc|bbl|bcf|blg|run\.xml|synctex\.gz|fls|fdb_latexmk|minted)$|\.DS_Store|Thumbs\.db|_minted' || true)
 if [ -n "${FORBIDDEN}" ]; then
     echo "  [ERROR] Forbidden auxiliary files found in CTAN zip:" >&2
     echo "${FORBIDDEN}" >&2
