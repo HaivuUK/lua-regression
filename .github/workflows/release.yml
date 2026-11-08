@@ -2,6 +2,8 @@ name: Release & CTAN Package
 
 on:
   push:
+    branches:
+      - v2-2026
     tags:
       - 'v*'
   workflow_dispatch:
