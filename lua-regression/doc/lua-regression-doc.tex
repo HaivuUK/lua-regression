@@ -271,7 +271,7 @@
 
 	\begin{codebox}
 		\begin{minted}[autogobble]{latex}
-			\luaregression[plot=true, order=2, xcol=1, ycol=2]{data.csv}
+			\luareg[plot=true, order=2, xcol=1, ycol=2]{data.csv}
 		\end{minted}
 	\end{codebox}
 
@@ -394,7 +394,7 @@
 
 	\begin{codebox}
     \begin{minted}[autogobble]{latex}
-        \luaregression[options]{data.csv}
+        \luareg[options]{data.csv}
     \end{minted}
     \end{codebox}
 
@@ -481,7 +481,7 @@
     
     \begin{codebox}
     	\begin{minted}[autogobble]{latex}
-    		\luaregression[order=2, xcol=1, ycol=2]{data.csv}
+    		\luareg[order=2, xcol=1, ycol=2]{data.csv}
     	\end{minted}
     \end{codebox}
     
@@ -501,7 +501,7 @@
 	
 	\begin{codebox}
 		\begin{minted}[autogobble]{latex}
-			\luaregression[plot=true, order=2, xcol=1, ycol=2]{data.csv}
+			\luareg[plot=true, order=2, xcol=1, ycol=2]{data.csv}
 		\end{minted}
 	\end{codebox}
 
@@ -632,14 +632,14 @@
 
 	\begin{codebox2}
 	    \begin{minted}[autogobble, breaklines, breakanywhere]{latex}
-	        \luaregression[xcol = 4, ycol = 5, order = 1]{example/mpg.csv}
+	        \luareg[xcol = 4, ycol = 5, order = 1]{example/seaborn-data/mpg.csv}
 	
 	        The equation for the linear regression for the MPG data set is $\printeq$ and the $R^2$ value is $\polyR$.
 	    \end{minted}
 
 	\tcblower
 	
-    \luaregression[xcol = 4, ycol = 5, order = 1]{example/mpg.csv}
+    \luareg[xcol = 4, ycol = 5, order = 1]{example/seaborn-data/mpg.csv}
 
     
     The equation for the linear regression for the MPG data set is $\printeq$ and the $R^2$ value is $\polyR$.
@@ -679,11 +679,11 @@
 	            \addlegendimage{p4, mark=*, thick}
 	            \addlegendimage{p8, thick}
 	
-	            \pgfplotstableread[col sep=comma]{example/mpg.csv}\datatable
+	            \pgfplotstableread[col sep=comma]{example/seaborn-data/mpg.csv}\datatable
 	
 	            \addplot [p4,mark=*,fill opacity=0.75, draw opacity=0] table [only marks,col sep=comma,x=horsepower,y=weight]{\datatable};
 	
-	            \luaregression[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 1, ci = true]{example/mpg.csv}
+	            \luareg[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 1, ci = true]{example/seaborn-data/mpg.csv}
 	
 	            \end{axis}
 	        \end{tikzpicture}
@@ -718,11 +718,11 @@
             \addlegendimage{p4, mark=*, thick}
             \addlegendimage{p8, thick}
 
-            \pgfplotstableread[col sep=comma]{example/mpg.csv}\datatable
+            \pgfplotstableread[col sep=comma]{example/seaborn-data/mpg.csv}\datatable
 
             \addplot [p4,mark=*,fill opacity=0.75, draw opacity=0] table [only marks,col sep=comma,x=horsepower,y=weight]{\datatable};
 
-            \luaregression[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 1, ci = true]{example/mpg.csv}
+            \luareg[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 1, ci = true]{example/seaborn-data/mpg.csv}
 
             \end{axis}
         \end{tikzpicture}
@@ -765,11 +765,11 @@
 	            \addlegendimage{p4, mark=*, thick}
 	            \addlegendimage{p8, thick}
 	
-	            \pgfplotstableread[col sep=comma]{example/mpg.csv}\datatable
+	            \pgfplotstableread[col sep=comma]{example/seaborn-data/mpg.csv}\datatable
 	
 	            \addplot [p4,mark=*,fill opacity=0.75, draw opacity=0] table [only marks,col sep=comma,x=horsepower,y=weight]{\datatable};
 	
-	            \luaregression[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 2, ci = true]{example/mpg.csv}
+	            \luareg[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 2, ci = true]{example/seaborn-data/mpg.csv}
 	
 	            \end{axis}
 	        \end{tikzpicture}
@@ -804,11 +804,11 @@
             \addlegendimage{p4, mark=*, thick}
             \addlegendimage{p8, thick}
 
-            \pgfplotstableread[col sep=comma]{example/mpg.csv}\datatable
+            \pgfplotstableread[col sep=comma]{example/seaborn-data/mpg.csv}\datatable
 
             \addplot [p4,mark=*,fill opacity=0.75, draw opacity=0] table [only marks,col sep=comma,x=horsepower,y=weight]{\datatable};
 
-            \luaregression[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 2, ci = true]{example/mpg.csv}
+            \luareg[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 2, ci = true]{example/seaborn-data/mpg.csv}
 
             \end{axis}
         \end{tikzpicture}

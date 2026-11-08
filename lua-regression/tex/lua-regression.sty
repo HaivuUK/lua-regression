@@ -103,8 +103,8 @@
         ci opacity=0.2,                     % CI fill opacity
         p=false,                            % Toggle for showing p-value
         lines={},                           % Additional lines to plot
-        xmin=-1e99,                         % Minimum x-value for filtering
-        xmax=1e99,                          % Maximum x-value for filtering
+        xmin=null,                          % Minimum x-value for filtering
+        xmax=null,                          % Maximum x-value for filtering
         ci truncate=true,                   % Truncate CI to the range of the data
         ci min=null,                        % Minimum x-value for CI truncation
         ci max=null,                        % Maximum x-value for CI truncation
@@ -193,6 +193,12 @@
 \NewDocumentCommand{\luareg}{O{}m}{%
     \pgfkeys{/luaregression, default, #1} % Parse the options
     \edef\thiscicolor{\luaregressioncicolor} % Store the CI color for later use
+    \def\luaregressionaxisxmin{}%
+    \def\luaregressionaxisxmax{}%
+    \ifdefined\pgfkeysvalueof
+        \edef\luaregressionaxisxmin{\pgfkeysvalueof{/pgfplots/xmin}}%
+        \edef\luaregressionaxisxmax{\pgfkeysvalueof{/pgfplots/xmax}}%
+    \fi
     \luaregressionifcontrolTF{#2}{%
         \pgfplotstablegetrowsof{#2}%
         \edef\luaregressionrowcount{\pgfplotsretval}%
@@ -241,6 +247,8 @@
                     ["lines"] = "\luaregressionlines",
                     ["xmin"] = tonumber("\luaregressionxmin"),
                     ["xmax"] = tonumber("\luaregressionxmax"),
+                    ["axis_xmin"] = tonumber("\luaregressionaxisxmin"),
+                    ["axis_xmax"] = tonumber("\luaregressionaxisxmax"),
                     ["truncate"] = ("\luaregressioncitruncate" == "true"),
                     ["ci_min"] = tonumber("\luaregressioncixmin"),
                     ["ci_max"] = tonumber("\luaregressioncixmax"),
@@ -273,6 +281,8 @@
                     ["lines"] = "\luaregressionlines",
                     ["xmin"] = tonumber("\luaregressionxmin"),
                     ["xmax"] = tonumber("\luaregressionxmax"),
+                    ["axis_xmin"] = tonumber("\luaregressionaxisxmin"),
+                    ["axis_xmax"] = tonumber("\luaregressionaxisxmax"),
                     ["truncate"] = ("\luaregressioncitruncate" == "true"),
                     ["ci_min"] = tonumber("\luaregressioncixmin"),
                     ["ci_max"] = tonumber("\luaregressioncixmax"),

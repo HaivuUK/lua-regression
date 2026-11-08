@@ -38,7 +38,7 @@ function generate_confidence_band(data, order, n_bootstrap, conf_level, ci_trunc
     local xs = {}
     if not ci_truncate and ci_xmin and ci_xmax then
         -- Use a grid over the specified range
-        local n_points = math.max(50, #data)
+        local n_points = math.max(50, math.min(#data, 200))
         local step = (ci_xmax - ci_xmin) / (n_points - 1)
         for i = 0, n_points - 1 do
             xs[#xs+1] = ci_xmin + i * step
@@ -71,7 +71,10 @@ function generate_confidence_band(data, order, n_bootstrap, conf_level, ci_trunc
         local bootstrap_model = fit_model(sample, fit_options or {order = order})
         if bootstrap_model then
             for i, xval in ipairs(xs) do
-                table.insert(predictions[i], bootstrap_model.predict(xval))
+                local yval = bootstrap_model.predict(xval)
+                if yval and yval == yval and math.abs(yval) < 1e20 then
+                    table.insert(predictions[i], yval)
+                end
             end
         end
     end
@@ -80,19 +83,23 @@ function generate_confidence_band(data, order, n_bootstrap, conf_level, ci_trunc
     local lower_band, upper_band = {}, {}
     for i, preds in ipairs(predictions) do
         table.sort(preds)
-        local lower_idx = math.floor(#preds * alpha + 0.5)
-        local upper_idx = math.floor(#preds * (1 - alpha) + 0.5)
-        lower_idx = math.max(lower_idx, 1)
-        upper_idx = math.min(upper_idx, #preds)
-        table.insert(lower_band, {xs[i], preds[lower_idx] or preds[1]})
-        table.insert(upper_band, {xs[i], preds[upper_idx] or preds[#preds]})
+        if #preds > 0 then
+            local lower_idx = math.floor(#preds * alpha + 0.5)
+            local upper_idx = math.floor(#preds * (1 - alpha) + 0.5)
+            lower_idx = math.max(lower_idx, 1)
+            upper_idx = math.min(upper_idx, #preds)
+            table.insert(lower_band, {xs[i], preds[lower_idx] or preds[1]})
+            table.insert(upper_band, {xs[i], preds[upper_idx] or preds[#preds]})
+        end
     end
 
     -- Format for pgfplots
     local function coords(array)
         local parts = {}
         for _, pt in ipairs(array) do
-            parts[#parts+1] = string.format("(%f,%f)", pt[1], pt[2])
+            if pt[1] and pt[2] and pt[1] == pt[1] and pt[2] == pt[2] and math.abs(pt[1]) < 1e15 and math.abs(pt[2]) < 1e15 then
+                parts[#parts+1] = string.format("(%.4f,%.4f)", pt[1], pt[2])
+            end
         end
         return table.concat(parts, " ")
     end

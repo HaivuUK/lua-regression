@@ -144,9 +144,32 @@ function process_data_with_options(file_path, options)
         local ci_truncate = options["truncate"] ~= false -- default true
         local ci_xmin, ci_xmax
         if not ci_truncate then
-            -- Use axis limits if provided, else use data range
-            ci_xmin = options["xmin"] or nil
-            ci_xmax = options["xmax"] or nil
+            -- Determine CI bounds when truncate is false either explicitly (ci max/min)
+            -- or via PGFPlots axis limits (axis_xmin / axis_xmax) or explicit xmin/xmax
+            -- or data range in that order.
+            ci_xmin = options["ci_min"] or options["cimin"] or options["axis_xmin"]
+            ci_xmax = options["ci_max"] or options["cimax"] or options["axis_xmax"]
+
+            if (not ci_xmin or math.abs(ci_xmin) >= 1e90) and options["xmin"] and math.abs(options["xmin"]) < 1e90 then
+                ci_xmin = options["xmin"]
+            end
+            if (not ci_xmax or math.abs(ci_xmax) >= 1e90) and options["xmax"] and math.abs(options["xmax"]) < 1e90 then
+                ci_xmax = options["xmax"]
+            end
+
+            table.sort(filtered_data, function(a, b) return a[1] < b[1] end)
+            if not ci_xmin or math.abs(ci_xmin) >= 1e90 then
+                ci_xmin = filtered_data[1] and filtered_data[1][1] or 0
+            end
+            if not ci_xmax or math.abs(ci_xmax) >= 1e90 then
+                ci_xmax = filtered_data[#filtered_data] and filtered_data[#filtered_data][1] or 1
+            end
+            if ci_xmin > ci_xmax then
+                ci_xmin, ci_xmax = ci_xmax, ci_xmin
+            end
+            if (model_type == "logarithmic" or model_type == "log" or model_type == "power" or model_type == "powerseries" or model_type == "power-series") and ci_xmin <= 0 then
+                ci_xmin = math.max(0.01, filtered_data[1] and filtered_data[1][1] or 0.1)
+            end
         end
         lower_band, upper_band = generate_confidence_band(filtered_data, order, n_bootstrap, conf_level, ci_truncate, ci_xmin, ci_xmax, options)
         tex.sprint("\\global\\expandafter\\def\\csname luareg@qlwr\\endcsname{" .. lower_band .. "}")
