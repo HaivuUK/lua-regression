@@ -21,6 +21,16 @@
 
 % Use repository version of lua-regression if present (development), otherwise system package
 \IfFileExists{../tex/lua-regression.sty}{%
+    \directlua{
+        package.path = '../?.lua;../tex/?.lua;' .. package.path
+        table.insert(package.searchers, 1, function(name)
+            local file, err = package.searchpath(name, package.path)
+            if file then
+                return loadfile(file)
+            end
+            return err
+        end)
+    }%
     \usepackage{../tex/lua-regression}%
 }{%
     \usepackage{lua-regression}%

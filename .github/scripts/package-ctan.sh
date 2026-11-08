@@ -45,6 +45,11 @@ fi
 REQUIRED_FILES=(
     "lua-regression/tex/lua-regression.sty"
     "lua-regression/tex/lua-regression.lua"
+    "lua-regression/core/data.lua"
+    "lua-regression/core/pipeline.lua"
+    "lua-regression/core/poly.lua"
+    "lua-regression/core/statistics.lua"
+    "lua-regression/models/regression.lua"
     "lua-regression/doc/lua-regression-doc.pdf"
     "lua-regression/doc/lua-regression-doc.tex"
     "lua-regression/doc/lua-regression-bib.bib"
@@ -113,6 +118,8 @@ echo "--> [3/5] Preparing TDS archive structure (${PACKAGE_NAME}.tds.zip)..."
 
 cp "${REPO_ROOT}/lua-regression/tex/lua-regression.sty" "${BUILD_DIR}/tds/tex/lualatex/${PACKAGE_NAME}/"
 cp "${REPO_ROOT}/lua-regression/tex/lua-regression.lua" "${BUILD_DIR}/tds/tex/lualatex/${PACKAGE_NAME}/"
+cp -r "${REPO_ROOT}/lua-regression/core" "${BUILD_DIR}/tds/tex/lualatex/${PACKAGE_NAME}/"
+cp -r "${REPO_ROOT}/lua-regression/models" "${BUILD_DIR}/tds/tex/lualatex/${PACKAGE_NAME}/"
 
 cp "${REPO_ROOT}/LICENSE.md" "${BUILD_DIR}/tds/doc/lualatex/${PACKAGE_NAME}/"
 cp "${REPO_ROOT}/lua-regression/README.md" "${BUILD_DIR}/tds/doc/lualatex/${PACKAGE_NAME}/"

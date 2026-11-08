@@ -19,9 +19,10 @@
 % implied warranties of merchantability and fitness for a
 % particular purpose.
 
-\ProvidesPackage{lua-regression}[2025/04/17 1.0.2  Lua Regression Plotting project]
+\ProvidesPackage{lua-regression}[2026/11/06 2.0.0  Lua Regression Plotting project]
 
 \RequirePackage{ifthen}
+\RequirePackage{iftex}
 \ifluatex
   \RequirePackage{luacode}
 \else
@@ -36,94 +37,305 @@
 \RequirePackage{pgfplots}
 \usepgfplotslibrary{fillbetween}
 
+\ExplSyntaxOn
+\NewDocumentCommand{\luaregressionifnumericTF}{mmm}
+    {
+        \tl_set:Nx \l_tmpa_tl {#1}
+        \exp_args:NnV \regex_match:nnTF { \A [0-9]+ \Z } \l_tmpa_tl {#2} {#3}
+    }
+\NewDocumentCommand{\luaregressionifcontrolTF}{mmm}
+    {
+        \tl_if_single_token:nTF {#1}
+        { \token_if_cs:NTF #1 {#2} {#3} }
+        {#3}
+    }
+\ExplSyntaxOff
+
+\directlua{ require("lua-regression") }
+
+\makeatletter
+\newcommand{\luareg@missingresult}[1]{%
+    \PackageError{lua-regression}{Missing result for '\string#1'}%
+    {The Lua code did not return a result for '\string#1'. Please check your datasource and ensure that it returns the expected values.}%
+}
+\def\luareg@polyR{\luareg@missingresult\polyR}
+\def\luareg@polyeq{\luareg@missingresult\polyeq}
+\def\luareg@printeq{\luareg@missingresult\printeq}
+\def\luareg@plot{\luareg@missingresult\polyeq}
+\def\luareg@qlwr{}
+\def\luareg@qupr{}
+\newcommand{\polyR}{\ifmmode\csname luareg@polyR\endcsname\else\ensuremath{\csname luareg@polyR\endcsname}\fi}
+\newcommand{\polyeq}{\ifmmode\csname luareg@polyeq\endcsname\else\ensuremath{\csname luareg@polyeq\endcsname}\fi}
+\newcommand{\printeq}{\ifmmode\csname luareg@printeq\endcsname\else\ensuremath{\csname luareg@printeq\endcsname}\fi}
+\newcommand{\qlwr}{\csname luareg@qlwr\endcsname}
+\newcommand{\qupr}{\csname luareg@qupr\endcsname}
+\newcommand{\luareg@luaerror}{%
+    \PackageError{lua-regression}{Regression failed}%
+    {Could not caluculate the regression result.\MessageBreak
+    Check the input file, selected columns, filtering options and regression parameters.}%
+}
+\makeatother
+
 % Define the key-value options
 \pgfkeys{
     /luaregression/.is family, /luaregression,
     default/.style = {
-        xcol=1,            % Default x-column index
-        ycol=2,            % Default y-column index
-        ci=false,  % Default: no error band
-        z-threshold=null,  % Default Z-score threshold
-        sig-figures=4,     % Default significant figures
-        order=1,          % Default polynomial order
-        plot=false,        % Default plotting behavior
-        pgf-options={mark=none,smooth}, % Default PGF options
-        eq=false, % Toggle for showing the equation
-        r2=false,       % Toggle for showing R²
-        debug=false,    % Debug toggle for csv
-        bootstrap=1000, % Number of bootstrap samples for confidence intervals
-        cicolor=blue,        % CI fill color
-        cifillopacity=0.2,  % CI fill opacity
+        x=1,                                % Default x-column index
+        y=2,                                % Default y-column index
+        ci=false,                           % Default: no error band
+        z=null,                             % Default Z-score threshold
+        sf=4,                               % Default significant figures
+        order=1,                            % Default polynomial order
+        type=polynomial,                    % Default regression type from available (polynomial, exponential, logarithmic, power, poisson, lasso, ridge)
+        lambda=1.0,                         % Default regularization parameter for lasso and ridge
+        quantile=0.5,                       % Default quantile for quantile regression
+        nan=true,                           % Default: ignore NaN values
+        zero=false,                         % Ignore zero values in the data
+        missing=true,                       % Default: ignore missing values
+        plot=false,                         % Default plotting behavior
+        pgf={mark=none,smooth},             % Default PGF options
+        axis pgf={},                        % Default PGF axis options
+        eq=false,                           % Toggle for showing the equation
+        r2=false,                           % Toggle for showing R²
+        debug=false,                        % Debug toggle for csv
+        ci boot=1000,                       % Number of bootstrap samples for confidence intervals
+        ci color=blue,                      % CI fill color
+        ci opacity=0.2,                     % CI fill opacity
+        p=false,                            % Toggle for showing p-value
+        lines={},                           % Additional lines to plot
+        xmin=-1e99,                         % Minimum x-value for filtering
+        xmax=1e99,                          % Maximum x-value for filtering
+        ci truncate=true,                   % Truncate CI to the range of the data
+        ci min=null,                        % Minimum x-value for CI truncation
+        ci max=null,                        % Maximum x-value for CI truncation
+        seed=null,                          % Seed for random number generator
+        legend=auto,                        % Intergration with existing legend entries
+        linecolor=black,                    % Line color for regression line
     },
-    xcol/.estore in = \luaregressionxcol,
-    ycol/.estore in = \luaregressionycol,
+    x/.estore in = \luaregressionx,
+    y/.estore in = \luaregressiony,
     ci/.estore in = \luaregressionci,
-    z-threshold/.estore in = \luaregressionzthreshold,
-    sig-figures/.estore in = \luaregressionsigfigures,
+    z/.estore in = \luaregressionzthreshold,
+    sf/.estore in = \luaregressionsigfigures,
     order/.estore in = \luaregressionorder,
+    type/.estore in = \luaregressiontype,
+    lambda/.estore in = \luaregressionlambda,
+    quantile/.estore in = \luaregressionquantile,
+    nan/.estore in = \luaregressionignorenan,
+    zero/.estore in = \luaregressionignorezero,
+    missing/.estore in = \luaregressionignoremissing,
     plot/.estore in = \luaregressionplot,
-    pgf-options/.estore in = \luaregressionpgfoptions,
+    pgf/.estore in = \luaregressionpgfoptions,
+    axis pgf/.estore in = \luaregressionaxispgfoptions,
     eq/.estore in = \luaregressionshowequation,
     r2/.estore in = \luaregressionshowrsquare,
     debug/.estore in = \luaregressiondebug,
-    bootstrap/.estore in = \luaregressionbootstrapsamples,
-    cicolor/.estore in = \luaregressioncicolor,
-    cifillopacity/.estore in = \luaregressioncifillopacity,
+    ci boot/.estore in = \luaregressionbootstrapsamples,
+    ci color/.estore in = \luaregressioncicolor,
+    ci opacity/.estore in = \luaregressioncifillopacity,
+    p/.estore in = \luaregressionshowpvalue,
+    lines/.estore in = \luaregressionlines,
+    xmin/.estore in = \luaregressionxmin,
+    xmax/.estore in = \luaregressionxmax,
+    ci truncate/.estore in = \luaregressioncitruncate,
+    ci min/.estore in = \luaregressioncixmin,
+    ci max/.estore in = \luaregressioncixmax,
+    seed/.estore in = \luaregressionseed,
+    legend/.estore in = \luaregressionlegend,
+    linecolor/.estore in = \luaregressionlinecolor,
+    xcol/.code = {\pgfkeysalso{x=#1}},
+    ycol/.code = {\pgfkeysalso{y=#1}},
+    z threshold/.code = {\pgfkeysalso{z=#1}},
+    sig figures/.code = {\pgfkeysalso{sf=#1}},
+    regression type/.code = {\pgfkeysalso{type=#1}},
+    ignore nan/.code = {\pgfkeysalso{nan=#1}},
+    ignore zero/.code = {\pgfkeysalso{zero=#1}},
+    ignore missing/.code = {\pgfkeysalso{missing=#1}},
+    pgf options/.code = {\pgfkeysalso{pgf={#1}}},
+    bootstrap/.code = {\pgfkeysalso{ci boot=#1}},
+    boot/.code = {\pgfkeysalso{ci boot=#1}},
+    color/.code = {\pgfkeysalso{ci color=#1}},
+    opacity/.code = {\pgfkeysalso{ci opacity=#1}},
+    pvalues/.code = {\pgfkeysalso{p=#1}},
+    truncate/.code = {\pgfkeysalso{ci truncate=#1}},
+    cimin/.code = {\pgfkeysalso{ci min=#1}},
+    cimax/.code = {\pgfkeysalso{ci max=#1}},
+    line color/.code = {\pgfkeysalso{linecolor=#1}},
 }
 
-% Define the macro
-\newcommand{\luaregression}[2][]{%
-    \pgfkeys{/luaregression, default, #1}% Parse the options
-    \directlua{
-        require("lua-regression")
-        process_data_with_options(
-            "#2",
-            {
-                ["xcol"] = tonumber("\luaregressionxcol"),
-                ["ycol"] = tonumber("\luaregressionycol"),
-                ["z_threshold"] = tonumber("\luaregressionzthreshold"),
-                ["sig_figures"] = tonumber("\luaregressionsigfigures"),
-                ["ci"] = ("\luaregressionci" == "true"),
-                ["order"] = tonumber("\luaregressionorder"),
-                ["debug"] = ("\luaregressiondebug" == "true"),
-                ["bootstrap_samples"] = tonumber("\luaregressionbootstrapsamples"),
-            }
-        )
+\makeatletter
+\newcount\luareg@legendindex
+\newcount\luareg@legendlast
+\newcommand{\luaregappendlastlegendline}{%
+    \pgfplotslistsize\pgfplots@plotspeclist\to\luareg@legendlast
+    \ifnum\luareg@legendlast>0
+        \advance\luareg@legendlast by -1
+        \luareg@legendindex=0
+        \def\luareg@newplotspecs{}%
+        \pgfplotslistforeachungrouped\pgfplots@plotspeclist\as\luareg@entry{%
+            \ifnum\luareg@legendindex=\luareg@legendlast
+                \edef\luareg@entry{%
+                    \luareg@entry,%
+                    /pgfplots/every legend image post/.append style={%
+                        /utils/exec={\noexpand\draw[color=\luaregressionlinecolor,thick] (0cm,0cm) -- (0.6cm,0cm);},%
+                    }%
+                }%
+            \fi
+            \expandafter\pgfplotslistpushback\expandafter{\luareg@entry}\to\luareg@newplotspecs
+            \advance\luareg@legendindex by 1
+        }%
+        \global\let\pgfplots@plotspeclist\luareg@newplotspecs
+    \fi
+}
+\makeatother
+
+% Regression command
+\NewDocumentCommand{\luareg}{O{}m}{%
+    \pgfkeys{/luaregression, default, #1} % Parse the options
+    \edef\thiscicolor{\luaregressioncicolor} % Store the CI color for later use
+    \luaregressionifcontrolTF{#2}{%
+        \pgfplotstablegetrowsof{#2}%
+        \edef\luaregressionrowcount{\pgfplotsretval}%
+        \edef\luaregressionlastrow{\number\numexpr\luaregressionrowcount-1\relax}%
+        \directlua{luaregression_input_data = {}}%
+        \pgfplotsforeachungrouped \luaregressionrow in {0,...,\luaregressionlastrow}{%
+            \luaregressionifnumericTF{\luaregressionx}{%
+                \pgfplotstablegetelem{\luaregressionrow}{[index]\number\numexpr\luaregressionx-1\relax}\of{#2}%
+            }{%
+                \pgfplotstablegetelem{\luaregressionrow}{\luaregressionx}\of{#2}%
+            }%
+            \edef\luaregressionxvalue{\pgfplotsretval}%
+            \luaregressionifnumericTF{\luaregressiony}{%
+                \pgfplotstablegetelem{\luaregressionrow}{[index]\number\numexpr\luaregressiony-1\relax}\of{#2}%
+            }{%
+                \pgfplotstablegetelem{\luaregressionrow}{\luaregressiony}\of{#2}%
+            }%
+            \edef\luaregressionyvalue{\pgfplotsretval}%
+            \directlua{
+                luaregression_input_data[\luaregressionrow + 1] = {
+                    tonumber("\luaregressionxvalue"),
+                    tonumber("\luaregressionyvalue")
+                }
+            }%
+        }%
+        \directlua{
+            require("lua-regression")
+            process_data_with_options(
+                luaregression_input_data,
+                {
+                    ["x"] = tonumber("\luaregressionx"),
+                    ["y"] = tonumber("\luaregressiony"),
+                    ["z_threshold"] = tonumber("\luaregressionzthreshold"),
+                    ["sig_figures"] = tonumber("\luaregressionsigfigures"),
+                    ["ci"] = ("\luaregressionci" == "true"),
+                    ["order"] = tonumber("\luaregressionorder"),
+                    ["regression_type"] = "\luaregressiontype",
+                    ["regression type"] = "\luaregressiontype",
+                    ["lambda"] = tonumber("\luaregressionlambda"),
+                    ["quantile"] = tonumber("\luaregressionquantile"),
+                    ["ignore_nan"] = ("\luaregressionignorenan" == "true"),
+                    ["ignore_zero"] = ("\luaregressionignorezero" == "true"),
+                    ["ignore_missing"] = ("\luaregressionignoremissing" == "true"),
+                    ["debug"] = ("\luaregressiondebug" == "true"),
+                    ["bootstrap_samples"] = tonumber("\luaregressionbootstrapsamples"),
+                    ["lines"] = "\luaregressionlines",
+                    ["xmin"] = tonumber("\luaregressionxmin"),
+                    ["xmax"] = tonumber("\luaregressionxmax"),
+                    ["truncate"] = ("\luaregressioncitruncate" == "true"),
+                    ["ci_min"] = tonumber("\luaregressioncixmin"),
+                    ["ci_max"] = tonumber("\luaregressioncixmax"),
+                    ["seed"] = tonumber("\luaregressionseed"),
+                }
+            )
+            luaregression_input_data = nil
+        }%
+    }{%
+        \directlua{
+            require("lua-regression")
+            process_data_with_options(
+                "#2",
+                {
+                    ["x"] = tonumber("\luaregressionx"),
+                    ["y"] = tonumber("\luaregressiony"),
+                    ["z_threshold"] = tonumber("\luaregressionzthreshold"),
+                    ["sig_figures"] = tonumber("\luaregressionsigfigures"),
+                    ["ci"] = ("\luaregressionci" == "true"),
+                    ["order"] = tonumber("\luaregressionorder"),
+                    ["regression_type"] = "\luaregressiontype",
+                    ["regression type"] = "\luaregressiontype",
+                    ["lambda"] = tonumber("\luaregressionlambda"),
+                    ["quantile"] = tonumber("\luaregressionquantile"),
+                    ["ignore_nan"] = ("\luaregressionignorenan" == "true"),
+                    ["ignore_zero"] = ("\luaregressionignorezero" == "true"),
+                    ["ignore_missing"] = ("\luaregressionignoremissing" == "true"),
+                    ["debug"] = ("\luaregressiondebug" == "true"),
+                    ["bootstrap_samples"] = tonumber("\luaregressionbootstrapsamples"),
+                    ["lines"] = "\luaregressionlines",
+                    ["xmin"] = tonumber("\luaregressionxmin"),
+                    ["xmax"] = tonumber("\luaregressionxmax"),
+                    ["truncate"] = ("\luaregressioncitruncate" == "true"),
+                    ["ci_min"] = tonumber("\luaregressioncixmin"),
+                    ["ci_max"] = tonumber("\luaregressioncixmax"),
+                    ["seed"] = tonumber("\luaregressionseed"),
+                }
+            )
+        }%
     }%
     \ifthenelse{\equal{\luaregressionplot}{true}}{%
         \ifx\addplot\undefined
             \PackageError{lua-regression}{'plot=true' requires a tikzpicture environment and pgfplots}%
             {Use '\\begin{tikzpicture} ... \\end{tikzpicture}' with '\\usepackage{pgfplots}'.}%
         \fi
-        \expandafter\addplot\expandafter[\luaregressionpgfoptions] {\polyeq};%
-        % Plot confidence band if ci=true
-        \ifthenelse{\equal{\luaregressionci}{true}}{%
-            \begingroup
-            \edef\luareg@ci@addplot{%
-            \noexpand\addplot[fill=\luaregressioncicolor,fill opacity=\luaregressioncifillopacity] fill between[of=quprpath and qlwrpath];%
+        \pgfplotsset{\luaregressionaxispgfoptions}%
+        \ifthenelse{\equal{\luaregressionlegend}{last}}{%
+            \expandafter\addplot\expandafter[\luaregressionpgfoptions,forget plot] {\csname luareg@plot\endcsname};%
+            \luaregappendlastlegendline
+        }{%
+            \ifthenelse{\equal{\luaregressionshowequation}{false}}{%
+                \ifthenelse{\equal{\luaregressionshowrsquare}{false}}{%
+                    \ifthenelse{\equal{\luaregressionshowpvalue}{false}}{%
+                        \expandafter\addplot\expandafter[\luaregressionpgfoptions,forget plot] {\csname luareg@plot\endcsname};%
+                    }{%
+                        \expandafter\addplot\expandafter[\luaregressionpgfoptions] {\csname luareg@plot\endcsname};%
+                    }%
+                }{%
+                    \expandafter\addplot\expandafter[\luaregressionpgfoptions] {\csname luareg@plot\endcsname};%
+                }%
+            }{%
+                \expandafter\addplot\expandafter[\luaregressionpgfoptions] {\csname luareg@plot\endcsname};%            
             }
-            \addplot[name path=qlwrpath,draw=none] coordinates {\qlwr};
-            \addplot[name path=quprpath,draw=none] coordinates {\qupr};
-            \luareg@ci@addplot
-            \endgroup
-        }{}%
-        % Construct the legend entry dynamically
+        }
+        % Add legend entry only when at least  one metadata field is enabled.
+        \ifthenelse{\equal{\luaregressionlegend}{last}}{}{%
         \begingroup
         \def\legendentry{}%
         \ifthenelse{\equal{\luaregressionshowequation}{true}}{%
-            \edef\legendentry{$y = \printeq$}%
+            \edef\legendentry{$y = \csname luareg@printeq\endcsname$}%
         }{}%
         \ifthenelse{\equal{\luaregressionshowrsquare}{true}}{%
             \ifx\legendentry\empty
-                \edef\legendentry{$R^2 = \polyR$}%
+                \edef\legendentry{$R^2 = \csname luareg@polyR\endcsname$}%
             \else
-                \edef\legendentry{\legendentry\\$R^2 = \polyR$}%
+                \edef\legendentry{\legendentry; $R^2 = \csname luareg@polyR\endcsname$}%
             \fi
         }{}%
         \ifx\legendentry\empty
         \else
-            \expandafter\addlegendentry\expandafter{\legendentry}%
+            \expandafter\addlegendentryexpanded\expandafter{\legendentry}%
         \fi
         \endgroup
+        }%
+        % Plot confidence band if ci=true
+        \ifthenelse{\equal{\luaregressionci}{true}}{%
+            \begingroup
+            \edef\luareg@ci@addplot{%
+            \noexpand\addplot[forget plot, fill=\luaregressioncicolor, fill opacity=\luaregressioncifillopacity] fill between[of=quprpath and qlwrpath];%
+            }
+            \addplot[forget plot, name path=qlwrpath,draw=none] coordinates {\csname luareg@qlwr\endcsname};
+            \addplot[forget plot, name path=quprpath,draw=none] coordinates {\csname luareg@qupr\endcsname};
+            \luareg@ci@addplot
+            \endgroup
+        }{}%
     }{}%
-}
+}%
+\NewCommandCopy\luaregression\luareg
