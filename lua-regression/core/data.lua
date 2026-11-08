@@ -72,7 +72,7 @@ function normalize_data(data)
 end
 
 -- Parse lines options (e.g., "2,3,7-9")
-local function parse_line_option(lines_str)
+function parse_line_option(lines_str)
     if not lines_str or lines_str == "" then
         return nil
     end

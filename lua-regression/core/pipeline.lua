@@ -52,12 +52,23 @@ function process_data_with_options(file_path, options)
     local data
     if type(file_path) == "table" then
         data = {}
-        for _, point in ipairs(file_path) do
-            local x_val = point and tonumber(point[1])
-            local y_val = point and tonumber(point[2])
-            if x_val and y_val and x_val == x_val and y_val == y_val and math.abs(x_val) < math.huge and math.abs(y_val) < math.huge then
-                data[#data + 1] = {x_val, y_val}
+        local xmin = (options and options["xmin"]) or -1e99
+        local xmax = (options and options["xmax"]) or 1e99
+        local lines_filter = (options and options["lines"] and options["lines"] ~= "") and parse_line_option(options["lines"]) or nil
+        for row_idx, point in ipairs(file_path) do
+            if not lines_filter or lines_filter[row_idx] then
+                local x_val = point and tonumber(point[1])
+                local y_val = point and tonumber(point[2])
+                local x_finite = x_val and x_val == x_val and math.abs(x_val) < math.huge
+                local y_finite = y_val and y_val == y_val and math.abs(y_val) < math.huge
+                if x_finite and y_finite and x_val >= xmin and x_val <= xmax then
+                    data[#data + 1] = {x_val, y_val}
+                end
             end
+        end
+        if #data == 0 then
+            report_error("No valid data points found in table input within the specified range.")
+            return
         end
     else
         -- Read CSV data from file
