@@ -129,21 +129,34 @@ function process_data_with_options(file_path, options)
     end
     local coefficients = model.coeffs or model.coefficients
 
-    -- Calculate p value for coefficients
-    local pvals, overall_p
-    if model_type == "polynomial" then
+    -- Calculate p value for coefficients and overall model
+    local pvals = model.pvalues
+    local overall_p = model.overall_p
+    if model_type == "polynomial" and not pvals then
         _, pvals = regression_pvalues(filtered_data, coefficients, order)
         overall_p = regression_overall_pvalue(filtered_data, coefficients, order)
+    end
+    local function format_pval(p)
+        if not p then return "" end
+        if p <= 0 then
+            return "0"
+        elseif p < 1e-4 then
+            local e = math.floor(math.log(p) / math.log(10))
+            local m = p / (10 ^ e)
+            if m >= 9.9995 then m = 1; e = e + 1 end
+            return string.format("%.2f \\times 10^{%d}", m, e)
+        end
+        return string.format("%.4f", p)
     end
     local pval_str = ""
     if pvals then
         local parts = {}
         for i, p in ipairs(pvals) do
-            parts[#parts + 1] = string.format("%.4f", p)
+            parts[#parts + 1] = format_pval(p)
         end
         pval_str = table.concat(parts, ", ")
     end
-    local main_pval_str = overall_p and string.format("%.5f", overall_p) or ""
+    local main_pval_str = format_pval(overall_p)
     tex.sprint("\\def\\polypvalues{" .. pval_str .. "}") -- all coefficient p-values
     tex.sprint("\\def\\polyoverallp{" .. main_pval_str .. "}") -- main overall regression p-value
 
@@ -151,7 +164,12 @@ function process_data_with_options(file_path, options)
     local lower_band, upper_band = "", ""
     if options["ci"] then
         local n_bootstrap = options["bootstrap_samples"] or 1000
-        local conf_level = 0.95
+        local conf_level = options["ci_level"] or 0.95
+        if conf_level >= 1 and conf_level < 100 then conf_level = conf_level / 100 end -- allow 95 for 95%
+        if not (conf_level > 0 and conf_level < 1) then
+            report_error("ci level must be between 0 and 1")
+            return
+        end
         local ci_truncate = options["truncate"] ~= false -- default true
         local ci_xmin, ci_xmax
         if not ci_truncate then
@@ -190,7 +208,10 @@ function process_data_with_options(file_path, options)
     local poly_eq = model.display_equation and model.display_equation() or model.equation()
     local plot_eq = model.plot_equation()
     local print_eq = poly_eq
-    local poly_r = calculate_r_squared(filtered_data, model.predict)
+    local poly_r = model.r_squared
+    if poly_r == nil then
+        poly_r = calculate_r_squared(filtered_data, model.predict)
+    end
     poly_r = poly_r and sigFig(poly_r, sig_figures) or "N/A"
 
     -- Set latex macros
