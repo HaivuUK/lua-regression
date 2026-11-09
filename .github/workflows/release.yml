@@ -2,6 +2,8 @@ name: Release & CTAN Package
 
 on:
   push:
+    branches:
+      - v2-2026
     tags:
       - 'v*'
   workflow_dispatch:
@@ -37,7 +39,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
