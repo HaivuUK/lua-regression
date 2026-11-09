@@ -61,9 +61,9 @@ jobs:
             TAG="v$(date +'%Y.%m.%d-%H%M')"
           fi
 
-          # Determine whether this is a draft release (default true unless explicitly set to false in workflow_dispatch)
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            DRAFT="${{ inputs.draft }}"
+          # The release should ALWAYS be a draft unless explicitly changed to false by the user in workflow_dispatch
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.draft }}" = "false" ]; then
+            DRAFT="false"
           else
             DRAFT="true"
           fi
@@ -131,7 +131,7 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: "${{ steps.tag.outputs.tag }}"
-          draft: ${{ steps.tag.outputs.draft == 'true' }}
+          draft: ${{ steps.tag.outputs.draft != 'false' }}
           prerelease: ${{ inputs.prerelease || false }}
           generate_release_notes: true
           files: |

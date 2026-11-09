@@ -158,7 +158,7 @@ def fit_python(name, x, y):
 # --- driver ------------------------------------------------------------------
 def dataset_columns(path):
     stem = os.path.basename(path)[:-4]
-    if stem == "brain_networks" or stem == "diamonds" or stem == "tips":  # multi-row header or " " surrounded names, not a flat table
+    if stem in ("brain_networks", "diamonds", "tips"):  # multi-row header or quoted CSV headers
         return None
     if stem in PAIRS:
         return PAIRS[stem]
