@@ -30,3 +30,8 @@ _minted*/
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# python virtual environments
+.venv/
+__pycache__/
+*.pyc

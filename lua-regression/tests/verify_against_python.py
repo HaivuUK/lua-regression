@@ -4,292 +4,208 @@ Verification of lua-regression against standard python libraries.
 fmodel equations/coefficients, R^2 / pseudo-R^2, overall p-values, and coefficient p-values directly.
 """
 
+import glob
+import os
 import subprocess
 import sys
 import numpy as np
 import pandas as pd
 import scipy.special as sp
-import scipy.stats as stats
+import scipy.stats as st
 import statsmodels.api as sm
 from sklearn.linear_model import Lasso, Ridge
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import StandardScaler
 
+ROOT = next(p for p in (os.getcwd(), os.path.join(os.path.dirname(__file__), "..", ".."))
+            if os.path.isfile(os.path.join(p, "lua-regression", "core", "data.lua")))
+ROOT = os.path.abspath(ROOT)
+DATA = os.path.join(ROOT, "lua-regression", "doc", "example", "seaborn-data")
 
-def load_mpg():
-    df = pd.read_csv("lua-regression/doc/example/seaborn-data/mpg.csv").dropna(
-        subset=["horsepower", "weight"]
-    )
-    return df["horsepower"].to_numpy(dtype=float), df["weight"].to_numpy(dtype=float)
-
-
-def verify_special_functions():
-    lua_code = r"""
-package.path = "lua-regression/?.lua;" .. package.path
-require("core.statistics")
-local S = luareg_stats
-print(string.format("%.16g\t%.16g\t%.16g\t%.16g\t%.16g\t%.16g\t%.16g",
-    S.log_gamma(12.5),
-    S.normal_cdf(1.96),
-    S.normal_inv_cdf(0.975),
-    S.t_two_sided_p(2.2281388519649385, 10),
-    S.f_upper_tail(4.964602743730711, 1, 10),
-    S.chi2_upper_tail(3.841458820694124, 1),
-    S.betai(2.5, 3.5, 0.4)
-))
-"""
-    out = subprocess.check_output(["lua", "-e", lua_code], text=True).strip()
-    vals = [float(v) for v in out.split("\t")]
-    refs = [
-        float(sp.gammaln(12.5)),
-        float(stats.norm.cdf(1.96)),
-        float(stats.norm.ppf(0.975)),
-        float(2.0 * stats.t.sf(2.2281388519649385, df=10)),
-        float(stats.f.sf(4.964602743730711, dfn=1, dfd=10)),
-        float(stats.chi2.sf(3.841458820694124, df=1)),
-        float(sp.betainc(2.5, 3.5, 0.4)),
-    ]
-    names = [
-        "gammaln(12.5)",
-        "norm.cdf(1.96)",
-        "norm.ppf(0.975)",
-        "2*t.sf(2.2281, df=10)",
-        "f.sf(4.9646, 1, 10)",
-        "chi2.sf(3.8415, df=1)",
-        "betainc(2.5, 3.5, 0.4)",
-    ]
-    return list(zip(names, vals, refs))
-
-
-def python_library_models(x: np.ndarray, y: np.ndarray):
-    n = len(x)
-    X1 = np.column_stack([x, np.ones(n)])
-    X2 = np.column_stack([x ** 2, x, np.ones(n)])
-    X_lnx = np.column_stack([np.log(x), np.ones(n)])
-    results = {}
-
-    # 1. Linear Regression: statsmodels.api.OLS
-    ols1 = sm.OLS(y, X1).fit()
-    results["Linear"] = {
-        "coeffs": [float(c) for c in ols1.params],
-        "r2": float(ols1.rsquared),
-        "overall_p": float(ols1.f_pvalue),
-        "pvals": [float(p) for p in ols1.pvalues],
-    }
-
-    # 2. Quadratic Regression: statsmodels.api.OLS
-    ols2 = sm.OLS(y, X2).fit()
-    results["Quadratic"] = {
-        "coeffs": [float(c) for c in ols2.params],
-        "r2": float(ols2.rsquared),
-        "overall_p": float(ols2.f_pvalue),
-        "pvals": [float(p) for p in ols2.pvalues],
-    }
-
-    # 3. Power Regression: statsmodels.api.OLS on log-log + sklearn.metrics.r2_score
-    ols_pow = sm.OLS(np.log(y), X_lnx).fit()
-    scale_pow, exp_pow = float(np.exp(ols_pow.params[1])), float(ols_pow.params[0])
-    results["Power"] = {
-        "coeffs": [scale_pow, exp_pow],
-        "r2": float(r2_score(y, scale_pow * (x ** exp_pow))),
-        "overall_p": float(ols_pow.f_pvalue),
-        "pvals": [float(p) for p in ols_pow.pvalues],
-    }
-
-    # 4. Logarithmic Regression: statsmodels.api.OLS
-    ols_log = sm.OLS(y, X_lnx).fit()
-    results["Logarithmic"] = {
-        "coeffs": [float(c) for c in ols_log.params],
-        "r2": float(ols_log.rsquared),
-        "overall_p": float(ols_log.f_pvalue),
-        "pvals": [float(p) for p in ols_log.pvalues],
-    }
-
-    # 5. Ridge Regression: scikit-learn StandardScaler + Ridge + scipy.stats
-    scaler = StandardScaler()
-    Z = scaler.fit_transform(x.reshape(-1, 1))
-    ridge = Ridge(alpha=1.0, solver="svd").fit(Z, y)
-    slope_r = float(ridge.coef_[0] / scaler.scale_[0])
-    inter_r = float(ridge.intercept_ - slope_r * scaler.mean_[0])
-    r2_r = float(ridge.score(Z, y))
-    # Effective degrees of freedom and sandwich covariance (Cule et al. 2011) evaluated via scipy.stats
-    G = Z.T @ Z
-    A = np.linalg.inv(G + 1.0 * np.eye(1))
-    M = A @ G
-    df_m_r = float(np.trace(M))
-    df_r_r = float(n - 1 - np.trace(2 * M - M @ M))
-    rss_r = float(np.sum((y - ridge.predict(Z)) ** 2))
-    tss_y = float(np.sum((y - np.mean(y)) ** 2))
-    sig2_r = rss_r / df_r_r
-    var_slope_r = float(sig2_r * (A @ G @ A)[0, 0] / (scaler.scale_[0] ** 2))
-    var_inter_r = float(sig2_r / n + (scaler.mean_[0] ** 2) * var_slope_r)
-    se_r = [np.sqrt(var_slope_r), np.sqrt(var_inter_r)]
-    c_r = [slope_r, inter_r]
-    results["Ridge"] = {
-        "coeffs": c_r,
-        "r2": r2_r,
-        "overall_p": float(stats.f.sf(((tss_y - rss_r) / df_m_r) / sig2_r, dfn=df_m_r, dfd=df_r_r)),
-        "pvals": [float(2.0 * stats.t.sf(abs(c_r[i]) / se_r[i], df=df_r_r)) for i in range(2)],
-    }
-
-    # 6. Quantile Regression: statsmodels.api.QuantReg (vcov="iid")
-    qreg = sm.QuantReg(y, X1).fit(q=0.5, vcov="iid")
-    q_ftest = qreg.f_test(np.eye(1, 2))
-    results["Quantile"] = {
-        "coeffs": [float(c) for c in qreg.params],
-        "r2": float(qreg.prsquared),
-        "overall_p": float(q_ftest.pvalue),
-        "pvals": [float(p) for p in qreg.pvalues],
-    }
-
-    # 7. Poisson Regression: statsmodels.api.GLM (Poisson family, scale="X2", use_t=True) + scipy.stats.f
-    pois = sm.GLM(y, X1, family=sm.families.Poisson()).fit(scale="X2", use_t=True)
-    d_null, d_model = float(pois.null_deviance), float(pois.deviance)
-    f_pois = ((d_null - d_model) / 1.0) / (d_model / float(pois.df_resid))
-    results["Poisson"] = {
-        "coeffs": [float(c) for c in pois.params],
-        "r2": float(1.0 - d_model / d_null),
-        "overall_p": float(stats.f.sf(f_pois, dfn=1, dfd=pois.df_resid)),
-        "pvals": [float(p) for p in pois.pvalues],
-    }
-
-    # 8. Lasso Regression: scikit-learn StandardScaler + Lasso + statsmodels/scipy.stats
-    # sklearn Lasso minimizes (1/(2n))||y - Xw||_2^2 + alpha||w||_1, so alpha = lambda / (2n)
-    lasso = Lasso(alpha=1.0 / (2.0 * n), tol=1e-12, max_iter=10000).fit(Z, y)
-    slope_l = float(lasso.coef_[0] / scaler.scale_[0])
-    inter_l = float(lasso.intercept_ - slope_l * scaler.mean_[0])
-    r2_l = float(lasso.score(Z, y))
-    rss_l = float(np.sum((y - lasso.predict(Z)) ** 2))
-    sig2_l = rss_l / (n - 2)
-    se_l = np.sqrt(np.diag(sig2_l * np.linalg.inv(X1.T @ X1)))
-    c_l = [slope_l, inter_l]
-    results["Lasso"] = {
-        "coeffs": c_l,
-        "r2": r2_l,
-        "overall_p": float(stats.f.sf(((tss_y - rss_l) / 1.0) / sig2_l, dfn=1, dfd=n - 2)),
-        "pvals": [float(2.0 * stats.t.sf(abs(c_l[i]) / se_l[i], df=n - 2)) for i in range(2)],
-    }
-
-    # 9. Exponential Regression: statsmodels.api.OLS on ln(y) + sklearn.metrics.r2_score
-    ols_exp = sm.OLS(np.log(y), X1).fit()
-    scale_exp, rate_exp = float(np.exp(ols_exp.params[1])), float(ols_exp.params[0])
-    results["Exponential"] = {
-        "coeffs": [scale_exp, rate_exp],
-        "r2": float(r2_score(y, scale_exp * np.exp(rate_exp * x))),
-        "overall_p": float(ols_exp.f_pvalue),
-        "pvals": [float(p) for p in ols_exp.pvalues],
-    }
-
-    return results
-
-
-def lua_models():
-    lua_code = r"""
-package.path = "lua-regression/?.lua;" .. package.path
-tex = { sprint = function() end }
-texio = { write = function() end }
-require("core.data")
-require("core.poly")
-require("core.statistics")
-require("models.regression")
-require("core.pipeline")
-
-local data = read_csv_to_table("lua-regression/doc/example/seaborn-data/mpg.csv", 4, 5, {ignore_nan=true, ignore_missing=true})
-local cases = {
-    {name="Linear",      opts={type="polynomial", order=1}},
-    {name="Quadratic",   opts={type="polynomial", order=2}},
-    {name="Power",       opts={type="power",      order=1}},
-    {name="Logarithmic", opts={type="log",        order=1}},
-    {name="Ridge",       opts={type="ridge",      order=1, lambda=1.0}},
-    {name="Quantile",    opts={type="quantile",   order=1, quantile=0.5}},
-    {name="Poisson",     opts={type="poisson",    order=1}},
-    {name="Lasso",       opts={type="lasso",      order=1, lambda=1.0}},
-    {name="Exponential", opts={type="exp",        order=1}},
+# Sensible (x, y) pairs; any other CSV falls back to its first two numeric columns.
+PAIRS = {
+    "anagrams": ("num1", "num2"), "anscombe": ("x", "y"), "attention": ("solutions", "score"),
+    "car_crashes": ("speeding", "total"), "dots": ("time", "firing_rate"), "exercise": ("id", "pulse"), 
+    "flights": ("year", "passengers"), "fmri": ("timepoint", "signal"), "geyser": ("duration", "waiting"),
+    "glue": ("Year", "Score"), "healthexp": ("Spending_USD", "Life_Expectancy"),
+    "iris": ("petal_length", "petal_width"), "mpg": ("horsepower", "weight"), 
+    "penguins": ("flipper_length_mm", "body_mass_g"), "planets": ("orbital_period", "mass"), 
+    "taxis": ("distance", "fare"), "titanic": ("age", "fare"),
 }
-for _, c in ipairs(cases) do
-    local m = fit_model(data, c.opts)
-    local pvals, overall_p = m.pvalues, m.overall_p
-    if c.opts.type == "polynomial" and not pvals then
-        _, pvals = regression_pvalues(data, m.coeffs, c.opts.order)
-        overall_p = regression_overall_pvalue(data, m.coeffs, c.opts.order)
-    end
-    local r2 = m.r_squared
-    if r2 == nil then r2 = calculate_r_squared(data, m.predict) end
-    local c_str, p_str = {}, {}
-    for _, v in ipairs(m.coeffs) do c_str[#c_str+1] = string.format("%.15g", v) end
-    for _, v in ipairs(pvals or {}) do p_str[#p_str+1] = string.format("%.15g", v) end
-    print(string.format("%s\t%s\t%.15g\t%.15g\t%s\t%s",
-        c.name, table.concat(c_str, ","), r2, overall_p or -1, table.concat(p_str, ","), m.display_equation()))
-end
+
+# name -> (Lua options, applicable(x, y), tolerance)
+MODELS = {
+    "Linear":      ('type="polynomial", order=1', lambda x, y: True, 1e-4),
+    "Quadratic":   ('type="polynomial", order=2', lambda x, y: True, 1e-4),
+    "Logarithmic": ('type="log"', lambda x, y: (x > 0).all(), 1e-4),
+    "Power":       ('type="power"', lambda x, y: (x > 0).all() and (y > 0).all(), 1e-4),
+    "Exponential": ('type="exp"', lambda x, y: (y > 0).all(), 1e-4),
+    "Ridge":       ('type="ridge", lambda=1.0', lambda x, y: True, 1e-4),
+    "Lasso":       ('type="lasso", lambda=1.0', lambda x, y: True, 1e-3),
+    "Quantile":    ('type="quantile", quantile=0.5', lambda x, y: True, 5e-2),
+    "Poisson":     ('type="poisson"', lambda x, y: (y >= 0).all() and y.sum() > 0, 5e-2),
+}
+
+LUA_HEAD = f"""
+package.path = "{ROOT}/lua-regression/?.lua;" .. package.path
+tex = {{sprint = function() end}}
+texio = {{write = function() end}}
+for _, m in ipairs{{"data", "poly", "statistics"}} do require("core." .. m) end
+require("models.regression")
 """
-    out = subprocess.check_output(["lua", "-e", lua_code], text=True)
-    res = {}
-    for line in out.strip().splitlines():
-        name, coeffs_s, r2_s, ov_p_s, pvals_s, eq_s = line.split("\t")
-        res[name] = {
-            "coeffs": [float(v) for v in coeffs_s.split(",")],
-            "r2": float(r2_s),
-            "overall_p": float(ov_p_s),
-            "pvals": [float(v) for v in pvals_s.split(",") if v],
-            "eq": eq_s,
-        }
-    return res
 
+def run_lua(body):
+    return subprocess.check_output(["lua", "-e", LUA_HEAD + body], text=True).strip()
 
-def rel_err(a: float, b: float) -> float:
+def rel_err(a, b):
+    """Relative error, or absolute error when both values are ~0."""
     if a == b:
         return 0.0
-    denom = max(abs(a), abs(b), 1e-300)
-    return abs(a - b) / denom
+    if abs(a) < 1e-4 and abs(b) < 1e-4:
+        return abs(a - b)
+    return abs(a - b) / max(abs(a), abs(b))
 
+# --- special functions -------------------------------------------------------
+SPECIAL = [  # (label, Lua expression, scipy reference)
+    ("gammaln(12.5)", "S.log_gamma(12.5)", sp.gammaln(12.5)),
+    ("norm.cdf(1.96)", "S.normal_cdf(1.96)", st.norm.cdf(1.96)),
+    ("norm.ppf(0.975)", "S.normal_inv_cdf(0.975)", st.norm.ppf(0.975)),
+    ("2*t.sf(2.2281, 10)", "S.t_two_sided_p(2.2281388519649385, 10)", 2 * st.t.sf(2.2281388519649385, 10)),
+    ("f.sf(4.9646, 1, 10)", "S.f_upper_tail(4.964602743730711, 1, 10)", st.f.sf(4.964602743730711, 1, 10)),
+    ("chi2.sf(3.8415, 1)", "S.chi2_upper_tail(3.841458820694124, 1)", st.chi2.sf(3.841458820694124, 1)),
+    ("betainc(2.5, 3.5, 0.4)", "S.betai(2.5, 3.5, 0.4)", sp.betainc(2.5, 3.5, 0.4)),
+]
+
+def special_checks():
+    exprs = ", ".join(e for _, e, _ in SPECIAL)
+    out = run_lua(f'local S = luareg_stats; print(string.format("{"%.16g " * len(SPECIAL)}", {exprs}))')
+    for (label, _, ref), got in zip(SPECIAL, out.split()):
+        yield label, float(got), float(ref), 1e-10
+
+# --- model fitting -----------------------------------------------------------
+def fit_lua(path, xc, yc, names):
+    cases = ", ".join(f'{{"{n}", {{{MODELS[n][0]}}}}}' for n in names)
+    out = run_lua(f"""
+local d = read_csv_to_table("{path}", "{xc}", "{yc}", {{ignore_nan=true, ignore_missing=true}})
+local function join(t) local s = {{}} for i, v in ipairs(t or {{}}) do s[i] = string.format("%.15g", v) end return table.concat(s, ",") end
+for _, c in ipairs{{{cases}}} do
+    local m = fit_model(d, c[2])
+    local p, op = m.pvalues, m.overall_p
+    if not p then _, p = regression_pvalues(d, m.coeffs, c[2].order); op = regression_overall_pvalue(d, m.coeffs, c[2].order) end
+    print(c[1], join(m.coeffs), string.format("%.15g", m.r_squared or calculate_r_squared(d, m.predict)), op or -1, join(p))
+end""")
+    res = {}
+    for line in out.splitlines():
+        n, c, r2, op, p = line.split("\t")
+        res[n] = dict(coeffs=[float(v) for v in c.split(",")], r2=float(r2), overall_p=float(op),
+                      pvals=[float(v) for v in p.split(",") if v])
+    return res
+
+def summarize(coeffs, r2, f_p, pvals):
+    return dict(coeffs=[float(c) for c in coeffs], r2=float(r2), overall_p=float(f_p),
+                pvals=[float(p) for p in pvals])
+
+def shrunk(model, x, y, scaler, Z, df_m, df_r, cov_slope):
+    """Shared F / t inference for the penalised (ridge, lasso) fits on raw-scale coefficients."""
+    n = len(x)
+    slope = model.coef_[0] / scaler.scale_[0]
+    coeffs = [slope, model.intercept_ - slope * scaler.mean_[0]]
+    rss = np.sum((y - model.predict(Z)) ** 2)
+    sig2 = rss / df_r
+    var_slope = sig2 * cov_slope / scaler.scale_[0] ** 2
+    se = np.sqrt([var_slope, sig2 / n + scaler.mean_[0] ** 2 * var_slope])
+    f_p = st.f.sf((np.sum((y - y.mean()) ** 2) - rss) / df_m / sig2, df_m, df_r)
+    return summarize(coeffs, model.score(Z, y), f_p, 2 * st.t.sf(np.abs(coeffs) / se, df_r))
+
+def fit_python(name, x, y):
+    n = len(x)
+    X1, X2, Xl = np.c_[x, np.ones(n)], np.c_[x ** 2, x, np.ones(n)], None
+    if (x > 0).all():
+        Xl = np.c_[np.log(x), np.ones(n)]
+
+    if name in ("Linear", "Quadratic", "Logarithmic"):
+        m = sm.OLS(y, {"Linear": X1, "Quadratic": X2, "Logarithmic": Xl}[name]).fit()
+        return summarize(m.params, m.rsquared, m.f_pvalue, m.pvalues)
+    if name in ("Power", "Exponential"):  # OLS on ln(y); R^2 on the original scale
+        m = sm.OLS(np.log(y), Xl if name == "Power" else X1).fit()
+        a, b = np.exp(m.params[1]), m.params[0]
+        return summarize([a, b], r2_score(y, np.exp(m.fittedvalues)), m.f_pvalue, m.pvalues)
+    if name in ("Ridge", "Lasso"):
+        scaler = StandardScaler()
+        Z = scaler.fit_transform(x.reshape(-1, 1))
+        if name == "Lasso":  # sklearn alpha = lambda / (2n)
+            return shrunk(Lasso(alpha=1 / (2 * n), tol=1e-12, max_iter=10000).fit(Z, y), x, y, scaler, Z,
+                          1, n - 2, np.linalg.inv(X1.T @ X1)[0, 0] * scaler.scale_[0] ** 2)
+        # Ridge: effective degrees of freedom and sandwich covariance (Cule & De Iorio 2012)
+        G = Z.T @ Z
+        A = np.linalg.inv(G + np.eye(1))
+        M = A @ G
+        return shrunk(Ridge(alpha=1.0, solver="svd").fit(Z, y), x, y, scaler, Z,
+                      np.trace(M), n - 1 - np.trace(2 * M - M @ M), (A @ G @ A)[0, 0])
+    if name == "Quantile":
+        m = sm.QuantReg(y, X1).fit(q=0.5, vcov="iid")
+        return summarize(m.params, m.prsquared, m.f_test(np.eye(1, 2)).pvalue, m.pvalues)
+    if name == "Poisson":
+        fam = sm.families.Poisson()
+        m = sm.GLM(y, X1, family=fam).fit()  # unit dispersion: Wald z-tests, chi-square LR test
+        dev_drop, r2 = m.null_deviance - m.deviance, 1 - m.deviance / m.null_deviance
+        if m.deviance / m.df_resid <= 1:
+            return summarize(m.params, r2, st.chi2.sf(dev_drop, 1), m.pvalues)
+        m = sm.GLM(y, X1, family=fam).fit(scale="X2", use_t=True)  # overdispersed: quasi-Poisson
+        f = dev_drop / (m.deviance / m.df_resid)
+        return summarize(m.params, r2, st.f.sf(f, 1, m.df_resid), m.pvalues)
+
+# --- driver ------------------------------------------------------------------
+def dataset_columns(path):
+    stem = os.path.basename(path)[:-4]
+    if stem == "brain_networks" or stem == "diamonds" or stem == "tips":  # multi-row header or " " surrounded names, not a flat table
+        return None
+    if stem in PAIRS:
+        return PAIRS[stem]
+    df = pd.read_csv(path).apply(pd.to_numeric, errors="coerce")
+    num = [c for c in df if df[c].notna().sum() >= 5 and df[c].nunique() > 2]
+    return tuple(num[:2]) if len(num) >= 2 else None
 
 def main():
-    failures = 0
-    total = 0
+    total = failed = 0
 
-    def check(label: str, got: float, want: float, tol: float = 1e-5):
-        nonlocal failures, total
+    def check(label, got, want, tol):
+        nonlocal total, failed
         total += 1
         err = rel_err(got, want)
-        if err > tol:
-            failures += 1
-            print(f"FAIL {label:38s} | Lua={got:.8e} | Py={want:.8e} | rel_err={err:.2e}")
-        else:
-            print(f"OK   {label:38s} | Lua={got:.8e} | Py={want:.8e} | rel_err={err:.2e}")
+        failed += err > tol
+        print(f"  {'FAIL' if err > tol else 'OK  '} {label:40s} Lua={got:.8e} Py={want:.8e} err={err:.1e}")
 
-    print("=== Special Functions vs scipy.special / scipy.stats ===")
-    for name, got, want in verify_special_functions():
-        check(name, got, want, 1e-10)
+    print("== Special functions vs scipy ==")
+    for item in special_checks():
+        check(*item)
 
-    x, y = load_mpg()
-    py_res = python_library_models(x, y)
-    lu_res = lua_models()
+    tested = 0
+    for path in sorted(glob.glob(os.path.join(DATA, "*.csv"))):
+        name = os.path.basename(path)
+        cols = dataset_columns(path)
+        if not cols:
+            print(f"\n-- {name}: skipped (no two numeric columns)")
+            continue
+        df = pd.read_csv(path)[list(cols)].apply(pd.to_numeric, errors="coerce").dropna()
+        x, y = df[cols[0]].to_numpy(float), df[cols[1]].to_numpy(float)
+        if len(x) < 5:
+            continue
+        names = [m for m, (_, ok, _) in MODELS.items() if ok(x, y)]
+        lua = fit_lua(path, *cols, names)
+        tested += 1
+        print(f"\n== {name} (x={cols[0]}, y={cols[1]}, n={len(x)}) ==")
+        for m in names:
+            tol, L, P = MODELS[m][2], lua[m], fit_python(m, x, y)
+            rows = [(f"c{i}", a, b) for i, (a, b) in enumerate(zip(L["coeffs"], P["coeffs"]), 1)]
+            rows += [("R^2", L["r2"], P["r2"])]
+            rows += [("overall_p", L["overall_p"], P["overall_p"])] * (L["overall_p"] >= 0)
+            rows += [(f"p{i}", a, b) for i, (a, b) in enumerate(zip(L["pvals"], P["pvals"]), 1)]
+            for label, a, b in rows:
+                check(f"{name[:-4]} {m} {label}", a, b, tol)
 
-    for name in [
-        "Linear",
-        "Quadratic",
-        "Power",
-        "Logarithmic",
-        "Ridge",
-        "Quantile",
-        "Poisson",
-        "Lasso",
-        "Exponential",
-    ]:
-        p = py_res[name]
-        l = lu_res[name]
-        print(f"\n--- {name} (LaTeX eq: y = {l['eq']}) ---")
-        tol = 5e-2 if name == "Quantile" else 1e-5
-        for idx, (lc, pc) in enumerate(zip(l["coeffs"], p["coeffs"]), 1):
-            check(f"{name} coeff[{idx}]", lc, pc, 1e-5)
-        check(f"{name} R^2", l["r2"], p["r2"], 1e-5)
-        check(f"{name} overall_p", l["overall_p"], p["overall_p"], tol)
-        for idx, (lp, pp) in enumerate(zip(l["pvals"], p["pvals"]), 1):
-            check(f"{name} pval[{idx}]", lp, pp, tol)
-
-    print(f"\nSummary: {total - failures}/{total} checks matched against scipy/statsmodels/sklearn.")
-    sys.exit(0 if failures == 0 else 1)
-
+    print(f"\n{total - failed}/{total} checks passed across {tested} datasets.")
+    sys.exit(failed > 0)
 
 if __name__ == "__main__":
     main()

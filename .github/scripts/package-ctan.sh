@@ -92,7 +92,7 @@ cp "${REPO_ROOT}/LICENSE.md" "${BUILD_DIR}/ctan/${PACKAGE_NAME}/"
 
 # Clean out any temporary files, TeX auxiliary files, OS-specific files, and git metadata
 rm -rf "${BUILD_DIR}/ctan/${PACKAGE_NAME}/doc/_minted"
-find "${BUILD_DIR}/ctan" -name ".git*" -exec rm -rf {} + 2>/dev/null || true
+find "${BUILD_DIR}/ctan" \( -name ".git*" -o -name "__pycache__" -o -name "*.pyc" \) -exec rm -rf {} + 2>/dev/null || true
 rm -rf "${BUILD_DIR}/ctan/${PACKAGE_NAME}/doc/example/seaborn-data/png" \
        "${BUILD_DIR}/ctan/${PACKAGE_NAME}/doc/example/seaborn-data/raw" \
        "${BUILD_DIR}/ctan/${PACKAGE_NAME}/doc/example/seaborn-data/process"
@@ -126,7 +126,7 @@ cp "${REPO_ROOT}/lua-regression/README.md" "${BUILD_DIR}/tds/doc/lualatex/${PACK
 cp -r "${REPO_ROOT}/lua-regression/doc/"* "${BUILD_DIR}/tds/doc/lualatex/${PACKAGE_NAME}/"
 
 rm -rf "${BUILD_DIR}/tds/doc/lualatex/${PACKAGE_NAME}/_minted"
-find "${BUILD_DIR}/tds" -name ".git*" -exec rm -rf {} + 2>/dev/null || true
+find "${BUILD_DIR}/tds" \( -name ".git*" -o -name "__pycache__" -o -name "*.pyc" \) -exec rm -rf {} + 2>/dev/null || true
 rm -rf "${BUILD_DIR}/tds/doc/lualatex/${PACKAGE_NAME}/example/seaborn-data/png" \
        "${BUILD_DIR}/tds/doc/lualatex/${PACKAGE_NAME}/example/seaborn-data/raw" \
        "${BUILD_DIR}/tds/doc/lualatex/${PACKAGE_NAME}/example/seaborn-data/process"
