@@ -1,0 +1,140 @@
+name: Release & CTAN Package
+
+on:
+  push:
+    branches:
+      - v2-2026
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag (e.g. v1.0.3) - leave empty to use current git ref'
+        required: false
+        type: string
+        default: ''
+      draft:
+        description: 'Publish as a draft release'
+        required: false
+        type: boolean
+        default: true
+      prerelease:
+        description: 'Mark as a pre-release'
+        required: false
+        type: boolean
+        default: false
+      validate_only:
+        description: 'Only package and validate (do not create GitHub release)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Package CTAN & Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Resolve release version and tag
+        id: tag
+        run: |
+          STY_FILE="lua-regression/tex/lua-regression.sty"
+          PKG_VERSION=$(sed -n -E 's/.*\\Provides(Expl)?Package\{[^}]*\}\{[^}]*\}\{([^}]+)\}.*/\2/p' "$STY_FILE" | head -n 1 | tr -d '[:space:]')
+          echo "Package version from .sty: ${PKG_VERSION}"
+
+          if [ -n "${{ inputs.tag_name }}" ]; then
+            TAG="${{ inputs.tag_name }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          elif [ -n "${PKG_VERSION}" ]; then
+            TAG="v${PKG_VERSION}"
+          else
+            TAG="v$(date +'%Y.%m.%d-%H%M')"
+          fi
+
+          # The release should ALWAYS be a draft unless explicitly changed to false by the user in workflow_dispatch
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.draft }}" = "false" ]; then
+            DRAFT="false"
+          else
+            DRAFT="true"
+          fi
+
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${PKG_VERSION:-${TAG#v}}" >> "$GITHUB_OUTPUT"
+          echo "draft=${DRAFT}" >> "$GITHUB_OUTPUT"
+          echo "RELEASE_TAG=${TAG}" >> "$GITHUB_ENV"
+          echo "Target release tag: ${TAG}"
+          echo "Is draft: ${DRAFT}"
+
+      - name: Package CTAN & TDS archives
+        run: |
+          chmod +x .github/scripts/package-ctan.sh
+          ./.github/scripts/package-ctan.sh
+
+      - name: Add Job Summary
+        run: |
+          echo "## CTAN Package & Release Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Release Tag:** \`${{ steps.tag.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Generated Distribution Files" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Asset | Description | Size |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| :--- | :--- | :--- |" >> "$GITHUB_STEP_SUMMARY"
+          
+          for file in dist/*; do
+            fname=$(basename "$file")
+            fsize=$(du -h "$file" | cut -f1)
+            case "$fname" in
+              *.tds.zip)
+                desc="**TDS Archive**: For installation into a local \`texmf\` directory"
+                ;;
+              *.zip)
+                desc="**CTAN Submission Archive**: Formatted for direct upload to CTAN"
+                ;;
+              *.pdf)
+                desc="**Documentation PDF**: Standalone user guide and reference manual"
+                ;;
+              *)
+                desc="Release asset"
+                ;;
+            esac
+            echo "| \`$fname\` | $desc | $fsize |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### CTAN Submission Details" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Package Name:** \`lua-regression\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Archive for Upload:** \`lua-regression.zip\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **CTAN Upload Portal:** [https://www.ctan.org/upload](https://www.ctan.org/upload)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Structure Inside Archive:** Single top-level directory \`lua-regression/\` containing \`README.md\`, \`LICENSE.md\`, \`tex/\`, and \`doc/\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload artifacts to workflow run
+        uses: actions/upload-artifact@v7
+        with:
+          name: lua-regression-release-${{ steps.tag.outputs.tag }}
+          path: dist/
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: ${{ !inputs.validate_only }}
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "${{ steps.tag.outputs.tag }}"
+          draft: ${{ steps.tag.outputs.draft != 'false' }}
+          prerelease: ${{ inputs.prerelease || false }}
+          generate_release_notes: true
+          files: |
+            dist/lua-regression.zip
+            dist/lua-regression.tds.zip
+            dist/lua-regression-doc.pdf

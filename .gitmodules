@@ -1,0 +1,3 @@
+[submodule "lua-regression/doc/example/seaborn-data"]
+	path = lua-regression/doc/example/seaborn-data
+	url = https://github.com/mwaskom/seaborn-data

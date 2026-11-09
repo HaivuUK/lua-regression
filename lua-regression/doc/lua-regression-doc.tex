@@ -19,10 +19,32 @@
 
 \usepackage[svgnames]{xcolor}
 
-\usepackage{lua-regression-dev}
+% Use repository version of lua-regression if present (development), otherwise system package
+\IfFileExists{../tex/lua-regression.sty}{%
+    \directlua{
+        package.path = '../?.lua;../tex/?.lua;' .. package.path
+        table.insert(package.searchers, 1, function(name)
+            local file, err = package.searchpath(name, package.path)
+            if file then
+                return loadfile(file)
+            end
+            return err
+        end)
+    }%
+    \usepackage{../tex/lua-regression}%
+}{%
+    \usepackage{lua-regression}%
+}
 
 \usepackage{tabularray}
 \usepackage{multicol}
+% Ensure the minted cache directory exists before latexminted runs
+\directlua{
+    local lfs = require("lfs")
+    if lfs and not lfs.isdir("_minted") then
+        lfs.mkdir("_minted")
+    end
+}
 \usepackage{minted}
 \usepackage[hidelinks]{hyperref}
 \usepackage{zref-clever}
@@ -249,7 +271,7 @@
 
 	\begin{codebox}
 		\begin{minted}[autogobble]{latex}
-			\luaregression[plot=true, order=2, xcol=1, ycol=2]{data.csv}
+			\luareg[plot=true, order=2, x=1, y=2]{data.csv}
 		\end{minted}
 	\end{codebox}
 
@@ -372,7 +394,7 @@
 
 	\begin{codebox}
     \begin{minted}[autogobble]{latex}
-        \luaregression[options]{data.csv}
+        \luareg[options]{data.csv}
     \end{minted}
     \end{codebox}
 
@@ -393,8 +415,8 @@
             row{1} = {font=\bfseries\sffamily}
         }
         Option & Description & Type & Default \\
-        xcol & The column index for the x-values & integer & 1 \\
-        ycol & The column index for the y-values & integer & 2 \\
+        x & The column index for the x-values & integer & 1 \\
+        y & The column index for the y-values & integer & 2 \\
         ci & Whether to include confidence intervals & boolean & false \\
         z-threshold & The Z-score threshold for confidence intervals & number & null \\
         sig-figures & The number of significant figures to display & integer & 4 \\
@@ -459,7 +481,7 @@
     
     \begin{codebox}
     	\begin{minted}[autogobble]{latex}
-    		\luaregression[order=2, xcol=1, ycol=2]{data.csv}
+    		\luareg[order=2, x=1, y=2]{data.csv}
     	\end{minted}
     \end{codebox}
     
@@ -479,7 +501,7 @@
 	
 	\begin{codebox}
 		\begin{minted}[autogobble]{latex}
-			\luaregression[plot=true, order=2, xcol=1, ycol=2]{data.csv}
+			\luareg[plot=true, order=2, x=1, y=2]{data.csv}
 		\end{minted}
 	\end{codebox}
 
@@ -610,14 +632,14 @@
 
 	\begin{codebox2}
 	    \begin{minted}[autogobble, breaklines, breakanywhere]{latex}
-	        \luaregression[xcol = 4, ycol = 5, order = 1]{example/mpg.csv}
+	        \luareg[x = 4, y = 5, order = 1]{example/seaborn-data/mpg.csv}
 	
 	        The equation for the linear regression for the MPG data set is $\printeq$ and the $R^2$ value is $\polyR$.
 	    \end{minted}
 
 	\tcblower
 	
-    \luaregression[xcol = 4, ycol = 5, order = 1]{example/mpg.csv}
+    \luareg[x = 4, y = 5, order = 1]{example/seaborn-data/mpg.csv}
 
     
     The equation for the linear regression for the MPG data set is $\printeq$ and the $R^2$ value is $\polyR$.
@@ -657,11 +679,11 @@
 	            \addlegendimage{p4, mark=*, thick}
 	            \addlegendimage{p8, thick}
 	
-	            \pgfplotstableread[col sep=comma]{example/mpg.csv}\datatable
+	            \pgfplotstableread[col sep=comma]{example/seaborn-data/mpg.csv}\datatable
 	
 	            \addplot [p4,mark=*,fill opacity=0.75, draw opacity=0] table [only marks,col sep=comma,x=horsepower,y=weight]{\datatable};
 	
-	            \luaregression[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 1, ci = true]{example/mpg.csv}
+	            \luareg[x = 4, y = 5, plot = true, eq = true, r2 = true, order = 1, ci = true]{example/seaborn-data/mpg.csv}
 	
 	            \end{axis}
 	        \end{tikzpicture}
@@ -696,11 +718,11 @@
             \addlegendimage{p4, mark=*, thick}
             \addlegendimage{p8, thick}
 
-            \pgfplotstableread[col sep=comma]{example/mpg.csv}\datatable
+            \pgfplotstableread[col sep=comma]{example/seaborn-data/mpg.csv}\datatable
 
             \addplot [p4,mark=*,fill opacity=0.75, draw opacity=0] table [only marks,col sep=comma,x=horsepower,y=weight]{\datatable};
 
-            \luaregression[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 1, ci = true]{example/mpg.csv}
+            \luareg[x = 4, y = 5, plot = true, eq = true, r2 = true, order = 1, ci = true]{example/seaborn-data/mpg.csv}
 
             \end{axis}
         \end{tikzpicture}
@@ -743,11 +765,11 @@
 	            \addlegendimage{p4, mark=*, thick}
 	            \addlegendimage{p8, thick}
 	
-	            \pgfplotstableread[col sep=comma]{example/mpg.csv}\datatable
+	            \pgfplotstableread[col sep=comma]{example/seaborn-data/mpg.csv}\datatable
 	
 	            \addplot [p4,mark=*,fill opacity=0.75, draw opacity=0] table [only marks,col sep=comma,x=horsepower,y=weight]{\datatable};
 	
-	            \luaregression[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 2, ci = true]{example/mpg.csv}
+	            \luareg[x = 4, y = 5, plot = true, eq = true, r2 = true, order = 2, ci = true]{example/seaborn-data/mpg.csv}
 	
 	            \end{axis}
 	        \end{tikzpicture}
@@ -782,11 +804,11 @@
             \addlegendimage{p4, mark=*, thick}
             \addlegendimage{p8, thick}
 
-            \pgfplotstableread[col sep=comma]{example/mpg.csv}\datatable
+            \pgfplotstableread[col sep=comma]{example/seaborn-data/mpg.csv}\datatable
 
             \addplot [p4,mark=*,fill opacity=0.75, draw opacity=0] table [only marks,col sep=comma,x=horsepower,y=weight]{\datatable};
 
-            \luaregression[xcol = 4, ycol = 5, plot = true, eq = true, r2 = true, order = 2, ci = true]{example/mpg.csv}
+            \luareg[x = 4, y = 5, plot = true, eq = true, r2 = true, order = 2, ci = true]{example/seaborn-data/mpg.csv}
 
             \end{axis}
         \end{tikzpicture}
@@ -798,6 +820,32 @@
     \pagebreak
 
     \section{Changelog}
+
+    \subsection*{v2.0.0}
+
+    \begin{warningbox}
+        v2.0.0 is a major breaking change from v1.0.0 and uses a new command.
+        Other features should work mostly the same but may have change in behaviour or calling.
+    \end{warningbox}
+
+    \begin{itemize}
+        \item Changed entry command from \textbackslash luaregression to \textbackslash luareg.
+        \item Rewrite in \LaTeX 3.
+        \item Added support for more regression types:
+        \begin{itemize}
+        	\item Exponential regression.
+        	\item Logarithmic regression.
+        	\item Power regression.
+        	\item Poisson regression.
+        	\item Ridge regression.
+        	\item Lasso regression.
+        \end{itemize}
+        \item Improved statistics computation.
+        \item Improved plotting options and customization.
+        \item Improved error handling and debugging options.
+        \item Reorganised code structure for better maintainability.
+        \item ...
+    \end{itemize}
 
     \subsection*{v1.0.2}
 
